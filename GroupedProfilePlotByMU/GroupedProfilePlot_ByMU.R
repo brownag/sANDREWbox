@@ -118,7 +118,7 @@ for(f in levels(mufact)) {
   if(!dir.exists("pedonlists"))
     dir.create("pedonlists")
   
-  write(paste0(site(sx.mu)$pedon_id,collapse=","),sep="",file = paste0("./pedonlists/",f,".csv"))
+  write(paste0(site(sx.mu)$peiid,collapse=","),sep="",file = paste0("./pedonlists/",f,".csv"))
   
   if(nrow(sx.mu) > 0) {
     if(f != "1031?") { 
