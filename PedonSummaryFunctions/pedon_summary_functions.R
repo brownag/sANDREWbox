@@ -1,0 +1,178 @@
+#interpretation related pedon-summary functions
+
+isOrganicHorizon <- function(hzname) {
+  return(grepl(x=hzname,"O")) #TODO: can use OSM definition if organic matter % is known from lab data
+}
+
+getClayIncrease = function(p) {
+  phz=horizons(p)
+  if(nrow(phz) > 1) {
+    #print(nrow(phz))
+    foo = rep(NA,nrow(phz))
+    for(h in 2:nrow(phz)) {
+      if(!isOrganicHorizon(phz[h-1,]$hzname))
+        foo[h] = phz[h,]$clay - phz[h-1,]$clay
+      else
+        foo[h] = NA
+    }
+    return(foo)
+  }
+  return(NA)
+}
+
+getClayIncreaseDepth = function(p, thresh) {
+  foo <- getClayIncrease(p)
+  phz <- horizons(p)
+  if(!is.na(foo)) {
+    atcdepths = which(foo > thresh)
+    if(length(atcdepths) > 0 ) 
+      return(phz[atcdepths[1],]$hzdept)
+  } 
+  return(-1)
+}
+
+estimateRootingDepth = function(p) {
+  thresh=20 #(abrupt text change)
+  default=estimateSoilDepth(p)
+  cid = getClayIncreaseDepth(p, thresh)
+  if(cid != -1) return(cid)
+  return(default)
+}
+
+estimatePSCS = function(p) {
+  soildepth <- estimateSoilDepth(p)
+  
+  #Parts D (argillic starts >100cm  depth) and F (all other mineral soils)
+  default_t = 25
+  default_b = 100
+  
+  #Key part A (soils with restrictio in shallow depth)
+  if(soildepth <= 36) {
+    default_t = 0
+    default_b = soildepth
+    return(c(default_t,default_b))
+  }
+  
+  #Key part B (Andisols)
+  if(!is.na(p$tax_order))
+    if(p$tax_order == "Andisols") {
+      default_t = 0
+      #nb eliminate organic horizons without andic soil properties
+      default_b = 100
+    }  
+  
+  #Adjust PSCS range downward if organic soil material is present at surface (i.e. mineral soil surface depth > 0)
+  odepth=getMineralSoilSurfaceDepth(p) 
+  print(odepth)
+  if(odepth > 0) {
+    default_t = default_t + odepth
+    if(default_b != soildepth)
+      default_b = default_b + odepth
+  }
+  
+  #Key parts C and E (has argillic/kandic/natric WITHIN 100CM)
+  argillic_bounds = getArgillicBounds(p)
+  if(is.finite(argillic_bounds$ubound)) { 
+    default_t=argillic_bounds$ubound
+    if(argillic_bounds$ubound <= 100) {
+      #Part C - argillic near surface
+      #TODO: check arenic and grossarenic subgroups, fragipan depths, strongly contrasting PSCs... should work fine for CA630 though
+      if(argillic_bounds$lbound-argillic_bounds$ubound <= 50)
+        default_b = argillic_bounds$lbound
+      else
+        default_b = argillic_bounds$ubound + 50 
+    } else if(argillic_bounds$lbound <= 25) {
+      default_b = 100
+    } 
+  }  
+  
+  #Adjust PSCS top depth to bottom of plow layer (if appropriate)
+  plow_layer_depth = getPlowLayerDepth(p)
+  if(is.finite(plow_layer_depth))
+    if(plow_layer_depth >= 25+odepth) 
+      default_t = plow_layer_depth
+  
+  #Adjust PSCS bottom depth to restriction depth, if appropriate
+  if(soildepth < default_b) #truncate to restriction
+    default_b = soildepth
+
+  return(c(default_t,default_b))
+}
+
+getMineralSoilSurfaceDepth <-  function(p) { #assumes OSM is given O designation.
+  phz = horizons(p)
+  default_t = 0
+  print(paste0("R",nrow(phz)))
+  if(nrow(phz) > 1) { 
+    for(h in 2:nrow(phz))
+      if(!grepl(x=phz[h-1,]$hzname,"O")) {
+        default_t = phz[h-1,]$hzdept 
+        return(default_t)
+      }
+  }
+  return(0)
+}
+
+getPlowLayerDepth <- function(p) {
+  phz=horizons(p)
+  hasap = grepl(phz$hzname,pattern="Ap")
+  if(sum(hasap) > 0)
+    return(max(phz[hasap,]$hzdepb)) #works for cases with multiple Ap horizons
+  return(-Inf)
+}
+
+getClayReqForArgillic <- function(eluvial_clay_content) {
+  if(eluvial_clay_content < 15) {
+    return(eluvial_clay_content + 3)
+  } else if (eluvial_clay_content >= 40) {
+    return(eluvial_clay_content + 8)
+  } else {
+    return(1.2*eluvial_clay_content)
+  }
+}
+
+getArgillicBounds <- function(p) {
+  phz = horizons(p)
+  ci <- getClayIncrease(p)
+  bounds = c(-Inf,Inf)
+  for(h in 2:length(ci)) {
+    #add a check for thin (<30cm) transitional horizons where clay increase might be met in non-contiguous hzns? 
+    #   does this need to account for boundary distinctness?
+    if(!is.finite(bounds[1])) {
+      if(!is.na(ci[h])) {
+        thresh=getClayReqForArgillic(phz[h-1,]$clay) 
+        #add a check for truncated argillics due to erosion or mixing of upper boundary by plowing
+        if(phz[h-1,]$clay+ci[h] >= thresh) {
+          #TODO: check for "evidence of illuviation" - horizon designation?
+          if(grepl(phz[h,]$hzname,pattern="t"))
+            bounds[1]=phz[h,]$hzdept
+        }
+      }
+    }
+    if(is.finite(bounds[1])) { #we're iterating within the argillic, lets find the bottom
+      if(!grepl(phz[h,]$hzname,pattern="t"))
+        bounds[2]=phz[h-1,]$hzdepb
+    }
+  }
+  restrictdep <- estimateSoilDepth(p)
+  if(is.finite(bounds[1]))
+    if(!is.finite(bounds[2]) | bounds[2] > restrictdep) 
+      bounds[2] = restrictdep
+  
+  return(data.frame(ubound=bounds[1],lbound=bounds[2]))
+}
+
+
+library(soilDB)
+#pedons = fetchNASIS()
+#site(pedons) = cbind(site(pedons),getSoilDepthClass(pedons))
+
+# c1=profileApply(pedons, estimateSoilDepth)
+# c2=profileApply(pedons, estimateRootingDepth)
+
+pscsraw = profileApply(pedons,estimatePSCS)
+lo = as.logical(1:length(pscsraw) %% 2)
+pscs_top = pscsraw[lo]
+pscs_bot = pscsraw[!lo]
+
+write.csv(transform(data.frame(pedons$site_id,pedons$taxonname,pedons$psctopdepth,pedons$pscbotdepth,esttop=pscs_top,estbot=pscs_bot, tmatch=(pedons$psctopdepth == pscs_top), bmatch=(pedons$pscbotdepth == pscs_bot)),match=(tmatch==bmatch & tmatch == T)),"CA630_pscs_check.csv")
