@@ -1,9 +1,27 @@
 #interpretation related pedon-summary functions
 
+#' isOrganicHorizon()
+#'
+#' @param hzname - Horizon designation
+#'
+#' @return TRUE/FALSE if horizon designation contains the master horizon "O"
+#' @export
+#'
+#' @examples
+#' isOrganicHorizon('Oe') #returns TRUE
+#' isOrganicHorizon('C') #returns FALSE
 isOrganicHorizon <- function(hzname) {
   return(grepl(x=hzname,"O")) #TODO: can use OSM definition if organic matter % is known from lab data
 }
 
+#' getClayIncrease
+#'
+#' @param p - "profile" element of SoilProfileCollection
+#'
+#' @return \code{getClayIncrease()} returns a vector of values reflecting vertical differences in clay content between mineral horizons.
+#' @export
+#'
+#' @examples
 getClayIncrease = function(p) {
   phz=horizons(p)
   if(nrow(phz) > 1) {
@@ -20,6 +38,16 @@ getClayIncrease = function(p) {
   return(NA)
 }
 
+#' getClayIncreaseDepth
+#'
+#' @param p - "profile" element of SoilProfileCollection
+#' @param thresh - threshold value for clay increase
+#'
+#' @return \code{getClayIncreaseDepth()} returns the depth at which the clay content change is greater than the user-specified threshold *thresh*.
+#' @export
+#'
+#' @examples
+#' \dontrun{getClayIncreaseDepth()}
 getClayIncreaseDepth = function(p, thresh) {
   foo <- getClayIncrease(p)
   phz <- horizons(p)
@@ -31,12 +59,129 @@ getClayIncreaseDepth = function(p, thresh) {
   return(-1)
 }
 
+#' estimateRootingDepth()
+#'
+#' @param p - "profile" element of SoilProfileCollection
+#'
+#' @return \code{estimateRootingDepth()} returns the depth (if present) to a "clay pan" (here defined as absolute clay increase of 20%). This does not mirror the exact definition of Abrupt Textural Change, as that may be more restrictive than required. 
+#' @export
+#'
+#' @examples
+#' \dontrun{estimateRootingDepth(p)}
 estimateRootingDepth = function(p) {
   thresh=20 #(abrupt text change)
   default=estimateSoilDepth(p)
   cid = getClayIncreaseDepth(p, thresh)
   if(cid != -1) return(cid)
   return(default)
+}
+
+
+#' getMineralSoilSurfaceDepth
+#'
+#' @param p - "profile" element of SoilProfileCollection
+#'
+#' @return \code{getMineralSoilSurfaceDepth()} returns the thickness of organic soil materials at the soil surface.
+#' @export
+#'
+#' @examples
+#' \dontrun{getMineralSoilSurfaceDepth(p)}
+getMineralSoilSurfaceDepth <-  function(p) { 
+  #assumes OSM is given O designation;
+  #TODO: add support for lab-sampled organic measurements
+  phz = horizons(p)
+  default_t = 0
+  if(nrow(phz) > 1) { 
+    for(h in 2:nrow(phz))
+      if(!grepl(x=phz[h-1,]$hzname,"O")) {
+        default_t = phz[h-1,]$hzdept 
+        return(default_t)
+      }
+  }
+  return(0)
+}
+
+#' surfaceHorizonThickness()
+#'
+#' @param p - "profile" element of SoilProfileCollection
+#' @param hzdesgn - Regular expression pattern for matching horizon designation
+#'
+#' @return
+#' @export
+#'
+#' @examples
+surfaceHorizonThickness <- function(p, hzdesgn) {
+  phz <- horizons(p)
+  match_desgn <- grepl(phz$hzname,pattern=hzdesgn)
+  flag=F; m <- 0 
+  if(match_desgn[1]) m=1
+  while(!flag & m > 0) {
+    if(!match_desgn[m] | m >= length(match_desgn)) flag=T
+    m <- m + 1
+  }
+  if(m > 0) return(phz[m,]$hzdepb)
+  else return(-Inf)
+}
+
+#' getPlowLayerDepth
+#'
+#' @param p - "profile" element of SoilProfileCollection
+#'
+#' @return \code{getPlowLayerDepth()} returns the thickness of Ap horizon(s) at the soil surface. Ignores buried Ap.
+#' @export
+#'
+#' @examples
+#' \dontrun{getMineralSoilSurfaceDepth(p)}
+getPlowLayerDepth <- function(p) {
+  phz=horizons(p)
+  if(nrow(phz) >= 1) {
+    hasap = grepl(phz$hzname,pattern="Ap[^b]")
+    if(sum(hasap) > 0) { #if there are one or more non-buried Ap horizons
+      return(max(phz[hasap,]$hzdepb))
+    }
+  }
+  return(-Inf)
+}
+
+getClayReqForArgillic <- function(eluvial_clay_content) {
+  if(eluvial_clay_content < 15) {
+    return(eluvial_clay_content + 3)
+  } else if (eluvial_clay_content >= 40) {
+    return(eluvial_clay_content + 8)
+  } else {
+    return(1.2*eluvial_clay_content)
+  }
+}
+
+getArgillicBounds <- function(p) {
+  phz = horizons(p)
+  ci <- getClayIncrease(p)
+  bounds = c(-Inf,Inf)
+  for(h in 2:length(ci)) {
+    #add a check for thin (<30cm) transitional horizons where clay increase might be met in non-contiguous hzns? 
+    #   does this need to account for boundary distinctness?
+    if(!is.finite(bounds[1])) {
+      if(!is.na(ci[h])) {
+        thresh=getClayReqForArgillic(phz[h-1,]$clay) 
+        #add a check for truncated argillics due to erosion or mixing of upper boundary by plowing
+        if(phz[h-1,]$clay+ci[h] >= thresh) {
+          #TODO: check for "evidence of illuviation" - horizon designation?
+          if(grepl(phz[h,]$hzname,pattern="t"))
+            bounds[1]=phz[h,]$hzdept
+        }
+      }
+    }
+    if(is.finite(bounds[1])) { #we're iterating within the argillic, lets find the bottom
+      if(!grepl(phz[h,]$hzname,pattern="t"))
+        bounds[2]=phz[h-1,]$hzdepb
+    }
+  }
+  restrictdep <- estimateSoilDepth(p)
+  if(is.finite(bounds[1]))
+    if(!is.finite(bounds[2]) | bounds[2] > restrictdep) 
+      bounds[2] = restrictdep
+  
+  return(data.frame(ubound=bounds[1],lbound=bounds[2]))
 }
 
 estimatePSCS = function(p) {
@@ -99,75 +244,13 @@ estimatePSCS = function(p) {
   return(c(default_t,default_b))
 }
 
-getMineralSoilSurfaceDepth <-  function(p) { #assumes OSM is given O designation.
-  phz = horizons(p)
-  default_t = 0
-  print(paste0("R",nrow(phz)))
-  if(nrow(phz) > 1) { 
-    for(h in 2:nrow(phz))
-      if(!grepl(x=phz[h-1,]$hzname,"O")) {
-        default_t = phz[h-1,]$hzdept 
-        return(default_t)
-      }
-  }
-  return(0)
-}
-
-getPlowLayerDepth <- function(p) {
-  phz=horizons(p)
-  hasap = grepl(phz$hzname,pattern="Ap")
-  if(sum(hasap) > 0)
-    return(max(phz[hasap,]$hzdepb)) #works for cases with multiple Ap horizons
-  return(-Inf)
-}
-
-getClayReqForArgillic <- function(eluvial_clay_content) {
-  if(eluvial_clay_content < 15) {
-    return(eluvial_clay_content + 3)
-  } else if (eluvial_clay_content >= 40) {
-    return(eluvial_clay_content + 8)
-  } else {
-    return(1.2*eluvial_clay_content)
-  }
-}
-
-getArgillicBounds <- function(p) {
-  phz = horizons(p)
-  ci <- getClayIncrease(p)
-  bounds = c(-Inf,Inf)
-  for(h in 2:length(ci)) {
-    #add a check for thin (<30cm) transitional horizons where clay increase might be met in non-contiguous hzns? 
-    #   does this need to account for boundary distinctness?
-    if(!is.finite(bounds[1])) {
-      if(!is.na(ci[h])) {
-        thresh=getClayReqForArgillic(phz[h-1,]$clay) 
-        #add a check for truncated argillics due to erosion or mixing of upper boundary by plowing
-        if(phz[h-1,]$clay+ci[h] >= thresh) {
-          #TODO: check for "evidence of illuviation" - horizon designation?
-          if(grepl(phz[h,]$hzname,pattern="t"))
-            bounds[1]=phz[h,]$hzdept
-        }
-      }
-    }
-    if(is.finite(bounds[1])) { #we're iterating within the argillic, lets find the bottom
-      if(!grepl(phz[h,]$hzname,pattern="t"))
-        bounds[2]=phz[h-1,]$hzdepb
-    }
-  }
-  restrictdep <- estimateSoilDepth(p)
-  if(is.finite(bounds[1]))
-    if(!is.finite(bounds[2]) | bounds[2] > restrictdep) 
-      bounds[2] = restrictdep
-  
-  return(data.frame(ubound=bounds[1],lbound=bounds[2]))
-}
 
 
 library(soilDB)
-#pedons = fetchNASIS()
+pedons = fetchNASIS()
 #site(pedons) = cbind(site(pedons),getSoilDepthClass(pedons))
 
-# c1=profileApply(pedons, estimateSoilDepth)
+c1=profileApply(pedons, getPlowLayerDepth)
 # c2=profileApply(pedons, estimateRootingDepth)
 
 pscsraw = profileApply(pedons,estimatePSCS)
