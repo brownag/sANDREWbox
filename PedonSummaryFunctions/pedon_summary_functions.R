@@ -160,27 +160,29 @@ getArgillicBounds <- function(p) {
   for(h in 2:length(ci)) {
     #add a check for thin (<30cm) transitional horizons where clay increase might be met in non-contiguous hzns? 
     #   does this need to account for boundary distinctness?
-    if(!is.finite(bounds[1])) {
-      if(!is.na(ci[h])) {
-        thresh=getClayReqForArgillic(phz[h-1,]$clay) 
+    if(!is.finite(bounds[1])) { #if we havent found upper bound
+      if(!is.na(ci[h])) { #and we are between two mineral horizons (i.e. change in clay content is defined)
+        thresh=getClayReqForArgillic(phz[h-1,]$clay) #determine the threshold
         #add a check for truncated argillics due to erosion or mixing of upper boundary by plowing
         if(phz[h-1,]$clay+ci[h] >= thresh) {
-          #TODO: check for "evidence of illuviation" - horizon designation?
-          if(grepl(phz[h,]$hzname,pattern="t"))
+          if(grepl(phz[h,]$hzname,pattern="t"))#TODO: check for P&V table for "evidence of illuviation" ?
             bounds[1]=phz[h,]$hzdept
         }
       }
     }
-    if(is.finite(bounds[1])) { #we're iterating within the argillic, lets find the bottom
-      if(!grepl(phz[h,]$hzname,pattern="t"))
-        bounds[2]=phz[h-1,]$hzdepb
-    }
+    
+    if(is.finite(bounds[1])) { #we're iterating within the argillic, lets take the bottom depth
+      if(!grepl(phz[h,]$hzname, pattern="t")) { #if the next horizon lacks a "t" subscript
+        bounds[2] <- phz[h, ]$hzdept
+        break;
+      }
+      if(h == length(ci)) # or if we are in last horizon in pedon
+        bounds[2] <- phz[h, ]$hzdepb
+    }  
   }
   restrictdep <- estimateSoilDepth(p)
-  if(is.finite(bounds[1]))
-    if(!is.finite(bounds[2]) | bounds[2] > restrictdep) 
-      bounds[2] = restrictdep
-  
+  if(is.finite(bounds[1]) & !is.finite(bounds[2]) | bounds[2] > restrictdep) 
+    bounds[2] = restrictdep
   return(data.frame(ubound=bounds[1],lbound=bounds[2]))
 }
 
@@ -190,12 +192,12 @@ estimatePSCS = function(p) {
   #Parts D (argillic starts >100cm  depth) and F (all other mineral soils)
   default_t = 25
   default_b = 100
+
   
   #Key part A (soils with restrictio in shallow depth)
   if(soildepth <= 36) {
     default_t = 0
     default_b = soildepth
-    return(c(default_t,default_b))
   }
   
   #Key part B (Andisols)
@@ -208,7 +210,6 @@ estimatePSCS = function(p) {
   
   #Adjust PSCS range downward if organic soil material is present at surface (i.e. mineral soil surface depth > 0)
   odepth=getMineralSoilSurfaceDepth(p) 
-  print(odepth)
   if(odepth > 0) {
     default_t = default_t + odepth
     if(default_b != soildepth)
@@ -218,17 +219,19 @@ estimatePSCS = function(p) {
   #Key parts C and E (has argillic/kandic/natric WITHIN 100CM)
   argillic_bounds = getArgillicBounds(p)
   if(is.finite(argillic_bounds$ubound)) { 
-    default_t=argillic_bounds$ubound
-    if(argillic_bounds$ubound <= 100) {
-      #Part C - argillic near surface
-      #TODO: check arenic and grossarenic subgroups, fragipan depths, strongly contrasting PSCs... should work fine for CA630 though
-      if(argillic_bounds$lbound-argillic_bounds$ubound <= 50)
-        default_b = argillic_bounds$lbound
-      else
-        default_b = argillic_bounds$ubound + 50 
-    } else if(argillic_bounds$lbound <= 25) {
-      default_b = 100
-    } 
+    if(argillic_bounds$ubound<100) {
+      default_t=argillic_bounds$ubound
+      if(argillic_bounds$ubound <= 100) {
+        #Part C - argillic near surface
+        #TODO: check arenic and grossarenic subgroups, fragipan depths, strongly contrasting PSCs... should work fine for CA630 though
+        if(argillic_bounds$lbound-argillic_bounds$ubound <= 50)
+          default_b = argillic_bounds$lbound
+        else
+          default_b = argillic_bounds$ubound + 50 
+      } else if(argillic_bounds$lbound <= 25) {
+        default_b = 100
+      } 
+    }
   }  
   
   #Adjust PSCS top depth to bottom of plow layer (if appropriate)
@@ -238,9 +241,10 @@ estimatePSCS = function(p) {
       default_t = plow_layer_depth
   
   #Adjust PSCS bottom depth to restriction depth, if appropriate
-  if(soildepth < default_b) #truncate to restriction
+  if(soildepth < default_b) {#truncate to restriction
     default_b = soildepth
-
+  }
+  
   return(c(default_t,default_b))
 }
 
