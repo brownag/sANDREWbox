@@ -3,15 +3,15 @@
 #purpose: finds all image files in a user-specified parent directory. 
 #         resizes them to the specified geometry (using magick::image_scale)
 #         writes transformed imagesto specified output folder, retaining parent folder structure.
-
 ###--------------------------------------------------------------------------------------------------------------------------
-base.path <- "S:\\NRCS\\Archive_Andy_Paolucci\\NEON_SJER_6_9_2017\\"
-out.path <- "S:\\NRCS\\Archive_Andy_Paolucci\\NEON_SJER_6_9_2017\\resize\\"
+
+#paths to find source images and output location; INCLUDE TRAILING SLASHES; output directory will be created recursively if needed
+base.path <- "S:\\NRCS\\120 ADS Administrative Services\\120-19 Personal Property\\Vehicles\\A286998_Dodge Dakota\\"
+out.path <- "S:\\NRCS\\120 ADS Administrative Services\\120-19 Personal Property\\Vehicles\\A286998_Dodge Dakota\\resize\\"
 
 geom <- "25%" #can supply a variety of geometries to image_scale() such as percentage, target dimensions (pixels) etc.
 
-file.extensions <- "jpg|jpeg|png|gif" #pipe delimited list of file extensions; concatenated to regex pattern to check that it is an extension in filename
-
+file.extensions <- "jpg|jpeg|png|gif" #pipe delimited string of file extensions; case insensitive; no "." required
 out.format <- "jpeg" #format for exporting resized images
 
 #ARGUMENTS
@@ -21,29 +21,32 @@ out.format <- "jpeg" #format for exporting resized images
 ### - file.extensions - regular expression pattern denoting file extension types (case-insensitve)
 ###--------------------------------------------------------------------------------------------------------------------------
 
-install.packages("magick")
 library(magick)
 
+#if output path does not exist, make it (recursively)
 if(!dir.exists(out.path))
   dir.create(out.path,recursive=T)
   
+#get a list of ALL the files within the base.path, recursively
 filez <- paste0(base.path,list.files(base.path,recursive=T))
 
 isImage <- function(x) {
-  #takes one or more file name/paths and determines if they reference image files (true or false)
+  #isImage() takes one or more file names/paths and determines if they reference image files (returns true or false)
+  
   #image file extension types are defined by the user at top of script with a pipe delimited list that is used within a regex group below
   #note that the regex pattern checks that a "." occurs before extension, and that extension is at end of file string
   return(grepl(x, pattern=paste0("\\.(",file.extensions,")$"), ignore.case=T))
 }
 
 for(p in filez) {
-  if(isImage(p)) {
-    img <- magick::image_read(p)
-    img <- magick::image_scale(img, geom)
-    foo <- gsub(pattern = base.path, x = p, replacement=out.path, fixed = T)
-    if(!dir.exists(dirname(foo)))
+  if(isImage(p)) { #if file has image extension
+    img <- magick::image_read(p) #read image into memory
+    img <- magick::image_scale(img, geom) #apply scaling transformation with user-specified geomoetry
+    foo <- gsub(pattern = base.path, x = p, replacement=out.path, fixed = T) #create a set of output paths using same hierarchy as input
+    if(!dir.exists(dirname(foo))) # if output path directory does not exist, create it (recursively)
        dir.create(dirname(foo), recursive = T)
-    magick::image_write(image = img, path = foo, format = out.format)
+    magick::image_write(image = img, path = foo, format = out.format) #write scaled image to file
   }
 }
-img
+
+#img #show what image in memory in plot/graphics pane

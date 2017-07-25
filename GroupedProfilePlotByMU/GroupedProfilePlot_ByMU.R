@@ -22,7 +22,7 @@ mu_source <- 'L:/NRCS/MLRAShared/CA630/FG_CA630_OFFICIAL.gdb'
 mu_layer <- 'ca630_a'
 bdy_layer <- 'ca630_b'
 
-targetMU='603.|604.|8110'
+targetMU='607.|605.|620.|603.|8110'
 ###
 ###
 ###
