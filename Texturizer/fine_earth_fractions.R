@@ -1,6 +1,4 @@
-#fine-earth fraction ranges (v0.1 07/27/17 andrew brown)
-                  added some extra commentary to image_resize script. removed some whit…
-            
+#fine-earth fraction ranges (v0.1 07/27/17 andrew brown)     
 # logic derived directly from NASIS calculation "Textural Class versus Particle Size Separates" written by Cathy Seybold (last updated 4/07/14)
 # 
 # PURPOSE: intended for use with the ternary fine earth fractions (sand, silt, clay) commonly estimated in the field; does NOT check sand fractions needed for vfs/fs/ms/cos/vcos subclasses. If these subclasses are used, the sand fraction modifier is assumed to be supported by the data/describer's experience. The sand, silt and clay fractions are still checked against the limits as if they were sand, loamy sand and sandy loam textural classes, respectively.
