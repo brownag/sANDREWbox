@@ -1,11 +1,13 @@
 #fine-earth fraction ranges (v0.1 07/27/17 andrew brown)
+                  added some extra commentary to image_resize script. removed some whit…
+            
 # logic derived directly from NASIS calculation "Textural Class versus Particle Size Separates" written by Cathy Seybold (last updated 4/07/14)
 # 
 # PURPOSE: intended for use with the ternary fine earth fractions (sand, silt, clay) commonly estimated in the field; does NOT check sand fractions needed for vfs/fs/ms/cos/vcos subclasses. If these subclasses are used, the sand fraction modifier is assumed to be supported by the data/describer's experience. The sand, silt and clay fractions are still checked against the limits as if they were sand, loamy sand and sandy loam textural classes, respectively.
 
 #texcl - vector of numeric values (NASIS codes) corresponding to a set of texture groups
 # returns a range for each of sand, silt and clay corresponding to the CLASS LIMITS imposed by the set of texture groups
-getFineEarthLimitsFromTextureGroupIDs <- function(texcl) {
+getFineEarthLimitsFromTextureGroupID <- function(texcl) {
   if(!is.na(texcl)) {
     buf <- matrix(nrow=3,ncol=2)
     rownames(buf) <- c("sand", "silt", "clay")
@@ -19,7 +21,7 @@ getFineEarthLimitsFromTextureGroupIDs <- function(texcl) {
 
 getFineEarthLimitsFromTextureClassName <- function(texclname) {
   texcl <- as.numeric(code(data.frame(texcl = tolower(texclname))))
-  return(getFineEarthLimitsFromTextureGroupIDs(texcl))
+  return(getFineEarthLimitsFromTextureGroupID(texcl))
 }
 
 #function suitable for profileApply
@@ -33,9 +35,10 @@ checkProfileFineEarthLimits <- function(pedon, skipNA = TRUE) {
 
 is.between <- function(x, a, b) { (x - a)  *  (b - x) >= 0 }
 
-checkHorizonFineEarthLimits <- function(horizon, skipNA = TRUE) {
+checkHorizonFineEarthLimits <- function(horizon, skipNA = TRUE, limitz=NA) {
   horizon <- (as.data.frame(t(horizon)))
-  limitz <- getFineEarthLimitsFromTextureClassName(horizon$texture_class)
+  if(is.na(limitz)) #if call does not specify limits to use, use the textural class name
+    limitz <- getFineEarthLimitsFromTextureClassName(horizon$texture_class)
   if(!is.null(limitz)) { #limits will be null if the texture class is NA
     rez = c(F,F,F)
     fracz <- c(as.numeric(levels(horizon[['sand']])), as.numeric(levels(horizon[['silt']])), as.numeric(levels(horizon[['clay']])))
@@ -60,11 +63,12 @@ checkHorizonFineEarthLimits <- function(horizon, skipNA = TRUE) {
   }
 }
 
-#NEW SOILDB type functions
-#takes an SPC comprised of components and adds a field containing 
-#     a list of the textural groups (non-RV included) allowed in this component horizon
-
+#NEW SOILDB type function
+#gets the set of textures in the Horizon Texture Group Table
+# gets value of texture (with modifiers), textural class, in-lieu textures, stratified flag and rv flag
+# identified by dmuid, component id, horizon id, texture group id and texture id; suitable for joining to other structures
 fetchNASISComponentTexture <- function(coiids) {
+  #TODO: fetchNASISComponentTexture needs "WHERE coiid == FOO" to prefilter query results on NASIS side 
   if(!requireNamespace('RODBC')) stop('please install the `RODBC` package', call.=FALSE)
   q <- "SELECT co.dmuiidref, co.coiid, chiidref as chiidref, chtgiid, cht.chtiid, texture, cht.texcl, cht.lieutex, stratextsflag, rvindicator FROM (chtexturegrp chtg
   INNER JOIN chtexture cht ON cht.chtgiidref = chtg.chtgiid
@@ -76,33 +80,35 @@ fetchNASISComponentTexture <- function(coiids) {
   return(d)  
 }
 
-#function suitable for profileApply
-# skipNA works same as for pedon horizon
-# The "Component" version of these functions has a few extra steps not found in the Pedon validation:
-# 1. queries NASIS to get the texture group table
-# 2. joins texture groups to supplied component coiid
-# 3. constructs a range from all possible textures in texture group table for that component, and an RV range
-# 4. verifies that fine earth Low and High in Component horizons correspond to listed texture groups for each horizon
-# 5. verifies that RV fine earth fractions for each horizon fall within RV texture group.
-
-appendTextureGroupDataToComponent <- function(hzs) {
-  #TODO: fetchNASISComponentTextureXXX should take coiid and add "WHERE coiid == FOO" to prefilter query results on NASIS side 
-  fnew <- fetchNASISComponentTexture()
-  #key <- unique(data.frame(clazz=uncode(fnew)$texcl, id=fnew$texcl))
-  col_tgrp <- aggregate(fnew$texcl,by=list(fnew$dmuiidref,fnew$coiid,fnew$chiidref),FUN=c)
-  colnames(col_tgrp) <- c("dmuiid","coiid","chiid","texcl")
-  return(merge(horizons(hzs), col_tgrp, by.x="chiid",by.y="chiid"))
-}
-
 checkComponentFineEarthLimits <- function(component, skipNA=TRUE) {
-  h <- horizons(component) 
+  fnew <- fetchNASISComponentTexture(component$coiid)
+  col_tgrp <- aggregate(fnew$texcl,by=list(fnew$dmuiidref,fnew$coiid,fnew$chiidref),FUN=c)
+  colnames(col_tgrp) <- c("dmuiid","coiid","chiid","texcls")
+  h <- merge(horizons(component), col_tgrp, by.x="chiid",by.y="chiid"))
   rez <- apply(h, checkCHorizonFineEarthLimits, skipNA)
 }
 
 checkCHorizonFineEarthLimits <- function(chorizon, skipNA=TRUE) {
   horizon <- (as.data.frame(t(chorizon)))
-  ##TODO: make query utilize coiid to prefilter
-  
+  if(exists(horizon$texcls)) {#TODO: check logic
+     idz <- horizon$texcls
+  }
+  rez <- lapply(idz, getFineEarthLimitsFromTextureGroupID) #returns list of 2x3 matrices, one element per horizon texture
+  rez2 <- lapply(rez, function(limz) {
+     return(checkHorizonFineEarthLimits(horizon, limitz=limz))
+  })
+}
+
+getFineEarthLimitsFromTextureGroupIDs <- function(texcl) {
+  if(!is.na(texcl)) {
+    buf <- matrix(nrow=3,ncol=2)
+    rownames(buf) <- c("sand", "silt", "clay")
+    colnames(buf) <- c("low", "high")
+    buf[1,] <- c(getSandLow(texcl), getSandHigh(texcl))
+    buf[2,] <- c(getSiltLow(texcl), getSiltHigh(texcl))
+    buf[3,] <- c(getClayLow(texcl), getClayHigh(texcl))
+    return(buf)
+  } else return(NULL)
 }
 
 ####
