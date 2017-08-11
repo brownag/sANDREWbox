@@ -335,6 +335,7 @@ hasDarkMineralSurface <- function(p, bounds=FALSE, val_dry=5, val_moist=3, chr_m
   #     deepest of (lower boundary of) argillic, cambic, natric, oxic or spodic horizon
   diag_depth <- min_surface+minimum_thickness #is mixing always over upper 18? or do you need to mix over 25 if applicable?
   soil_depth <- estimateSoilDepth(p)
+  dark_lbound <- min_surface #default is no epipedon
   
   if(soil_depth < diag_depth) #soils shallower than 18cm -> use the whole thing
     diag_depth <- soil_depth
@@ -444,9 +445,16 @@ hasDarkMineralSurface <- function(p, bounds=FALSE, val_dry=5, val_moist=3, chr_m
     print(paste0("Pedon (", hz$peiid, ") lacks all color data; impossible to determine boundaries. Returning NA."))
     dark_lbound <- min_surface
   }
-  if(min_surface == dark_lbound)
-    return(data.frame(dsubound=NA, dslbound=NA))
-  return(data.frame(dsubound=min_surface, dslbound=dark_lbound))
+  if(min_surface == dark_lbound) {
+    #no dark surface, figure out the boundaries for ochric
+    ochric_top=0 #includes organic soil materials too thin for histic/folistic
+    ochric_bot=18
+    if(argillic_ubound != -Inf)
+      ochric_bot = argillic_ubound
+    return(data.frame(dsubound=ochric_top, dslbound=ochric_bot, is_ochric=T))
+  }
+    
+  return(data.frame(dsubound=min_surface, dslbound=dark_lbound, is_ochric=F))
 }
 
 is.between <- function(x, a, b) { 
