@@ -89,6 +89,7 @@ estimateRootingDepth = function(p) {
 getMineralSoilSurfaceDepth <-  function(p) { 
   #assumes OSM is given O designation;
   #TODO: add support for lab-sampled organic measurements
+  #      keep organic horizons with andic soil properties
   phz = horizons(p)
   default_t = 0
   if(nrow(phz) > 1) { 
@@ -202,9 +203,8 @@ estimatePSCS = function(p) {
   
   #Key part B (Andisols)
   if(!is.na(p$tax_order))
-    if(p$tax_order == "Andisols") {
+    if(p$tax_order == "andisols") {
       default_t = 0
-      #nb eliminate organic horizons without andic soil properties
       default_b = 100
     }  
   
@@ -217,22 +217,24 @@ estimatePSCS = function(p) {
   }
   
   #Key parts C and E (has argillic/kandic/natric WITHIN 100CM)
-  argillic_bounds = getArgillicBounds(p)
-  if(is.finite(argillic_bounds$ubound)) { 
-    if(argillic_bounds$ubound<100) {
-      default_t=argillic_bounds$ubound
-      if(argillic_bounds$ubound <= 100) {
-        #Part C - argillic near surface
-        #TODO: check arenic and grossarenic subgroups, fragipan depths, strongly contrasting PSCs... should work fine for CA630 though
-        if(argillic_bounds$lbound-argillic_bounds$ubound <= 50)
-          default_b = argillic_bounds$lbound
-        else
-          default_b = argillic_bounds$ubound + 50 
-      } else if(argillic_bounds$lbound <= 25) {
-        default_b = 100
-      } 
-    }
-  }  
+  if(is.na(p$tax_order) | p$tax_order != "andisols") {
+    argillic_bounds = getArgillicBounds(p)
+    if(is.finite(argillic_bounds$ubound)) { 
+      if(argillic_bounds$ubound<100) {
+        default_t=argillic_bounds$ubound
+        if(argillic_bounds$ubound <= 100) {
+          #Part C - argillic near surface
+          #TODO: check arenic and grossarenic subgroups, fragipan depths, strongly contrasting PSCs... should work fine for CA630 though
+          if(argillic_bounds$lbound-argillic_bounds$ubound <= 50)
+            default_b = argillic_bounds$lbound
+          else
+            default_b = argillic_bounds$ubound + 50 
+        } else if(argillic_bounds$lbound <= 25) {
+          default_b = 100
+        } 
+      }
+    }  
+  }
   
   #Adjust PSCS top depth to bottom of plow layer (if appropriate)
   plow_layer_depth = getPlowLayerDepth(p)
@@ -248,19 +250,243 @@ estimatePSCS = function(p) {
   return(c(default_t,default_b))
 }
 
+get_raw_colors_from_NASIS_db <- function ()  {
+  if (!requireNamespace("RODBC")) 
+    stop("please install the `RODBC` package", call. = FALSE)
+  q <- "SELECT peiid, phiid, ms.ChoiceLabel AS colormoistst, colorpct as pct, mh.ChoiceName AS colorhue, mv.ChoiceName AS colorvalue, mc.ChoiceName AS colorchroma\nFROM\n  pedon_View_1 INNER JOIN phorizon_View_1 ON pedon_View_1.peiid = phorizon_View_1.peiidref\n  INNER JOIN phcolor_View_1 ON phorizon_View_1.phiid = phcolor_View_1.phiidref\n  LEFT OUTER JOIN (SELECT * FROM MetadataDomainDetail WHERE DomainID = 1242) AS mh ON phcolor_View_1.colorhue = mh.ChoiceValue\n  LEFT OUTER JOIN (SELECT * FROM MetadataDomainDetail WHERE DomainID = 1244) AS mv ON phcolor_View_1.colorvalue = mv.ChoiceValue\n  LEFT OUTER JOIN (SELECT * FROM MetadataDomainDetail WHERE DomainID = 1241) AS mc ON phcolor_View_1.colorchroma = mc.ChoiceValue\n  LEFT OUTER JOIN (SELECT * FROM MetadataDomainDetail WHERE DomainID = 1243) AS ms ON phcolor_View_1.colormoistst = ms.ChoiceValue\n  ORDER BY phiid, colormoistst;"
+  channel <- RODBC::odbcDriverConnect(connection = "DSN=nasis_local;UID=NasisSqlRO;PWD=nasisRe@d0n1y")
+  d <- RODBC::sqlQuery(channel, q, stringsAsFactors = FALSE)
+  RODBC::odbcClose(channel)
+  #d.final <- simplifyColorData(d)
+  return(d)
+}
 
+get_dominant_raw_colors_from_NASIS_db <- function() {
+  hz_color_nasis <- get_raw_colors_from_NASIS_db() #need the "unmixed" colors from NASIS
+  ll <- lapply(split(hz_color_nasis,f=hz_color_nasis$phiid), function(df) {
 
-library(soilDB)
-pedons = fetchNASIS()
-#site(pedons) = cbind(site(pedons),getSoilDepthClass(pedons))
+    idx.moist <- which(df$colormoistst == "Moist")
+    idx.dry <- which(df$colormoistst == "Dry")
+    if(length(idx.moist) > 0 | length(idx.dry) > 0) {
+      hzpeiid <- df$peiid[1]
+      hzphiid <- df$phiid[1]
+      
+      moistcol <- df[idx.moist[order(df$pct,decreasing=F)][1],]
+      drycol <- df[idx.dry[order(df$pct,decreasing=F)][1],]
+      
+      outdf <- data.frame(peiid=hzpeiid, phiid=hzphiid, rd_hue=drycol$colorhue, 
+                          rd_value=drycol$colorvalue, rd_chroma=drycol$colorchroma, rm_hue=moistcol$colorhue, 
+                          rm_value=moistcol$colorvalue, rm_chroma=moistcol$colorchroma) #make template dataframe
+      return(outdf)
+    }
+  })
+  outdf <- data.frame(peiid=numeric(0), phiid=numeric(0), rd_hue=character(0), 
+                      rd_value=numeric(0), rd_chroma=numeric(0), rm_hue=character(0), 
+                      rm_value=numeric(0), rm_chroma=numeric(0))
+  for(i in 1:length(ll))
+    outdf <- rbind(outdf, ll[[i]])
+  return(outdf)
+}
 
-c1=profileApply(pedons, getPlowLayerDepth)
-# c2=profileApply(pedons, estimateRootingDepth)
+hasDarkColors <- function(dry_val, moi_val, moi_chr, val_dry=5, val_moist=3, chr_moist=3, require_chroma=TRUE,  remove.na=TRUE) {
+  f.dry_val <- TRUE
+  f.moi_val <- TRUE
+  f.moi_chr <- TRUE
+  
+  #print(c(dry_val, moi_val, moi_chr))
+  if(length(dry_val)) { #if have a record for dry value
+    if(!is.na(dry_val)) { # and that record is not empty
+      if(dry_val > val_dry) # if value greater than threshold, not a dark color
+        f.dry_val <- FALSE
+    } else if(remove.na) f.dry_val <- TRUE
+  }
+  
+  if(length(moi_val)) {
+    if(!is.na(moi_val)) {
+      if(moi_val > val_moist)
+        f.moi_val <- FALSE    
+    } else if(remove.na) f.dry_val <- TRUE
 
-pscsraw = profileApply(pedons,estimatePSCS)
-lo = as.logical(1:length(pscsraw) %% 2)
-pscs_top = pscsraw[lo]
-pscs_bot = pscsraw[!lo]
-write.csv(transform(data.frame(pedons$site_id,pedons$taxonname,pedons$psctopdepth,pedons$pscbotdepth,esttop=pscs_top,estbot=pscs_bot, tmatch=(pedons$psctopdepth == pscs_top), bmatch=(pedons$pscbotdepth == pscs_bot)),match=(tmatch==bmatch & tmatch == T)),"CA630_pscs_check.csv")
+  } 
+  
+  if(length(moi_chr))
+    if(!is.na(moi_chr)) {
+      if(moi_chr > chr_moist)
+        f.moi_chr <- FALSE
+        if(!require_chroma)
+          f.moi_chr <- TRUE
+    } else if(remove.na) f.moi_chr <- TRUE
+  
+  if(any(!c(f.dry_val, f.moi_val, f.moi_chr))) {
+    return(FALSE)
+  }
+  return(TRUE)
+}
+
+hasDarkMineralSurface <- function(p, bounds=FALSE, val_dry=5, val_moist=3, chr_moist=3, require_chroma=TRUE, remove.na=TRUE) {
+  min_surface <- getMineralSoilSurfaceDepth(p) 
+  minimum_thickness <- 18 # upper 18cm of mineral are diagnostic for colors; but thickness varies depending on below criteria
+  #TODO: minimum thickness requirements
+  # - default: 18
+  # - maximum: 25
+  # - if shallower than 18cm, not sandy, and dark surface overlies contact: 10 (and color averaged over whole thickness)
+  # - otherwise: 1/3 of distance to: 
+  #     shallowest of (upper boundary of) 2ndary carbonates, calcic, petrocalcic, duripan, fragipan
+  #     deepest of (lower boundary of) argillic, cambic, natric, oxic or spodic horizon
+  diag_depth <- min_surface+minimum_thickness #is mixing always over upper 18? or do you need to mix over 25 if applicable?
+  soil_depth <- estimateSoilDepth(p)
+  
+  if(soil_depth < diag_depth) #soils shallower than 18cm -> use the whole thing
+    diag_depth <- soil_depth
+  
+  hz_color_nasis <- get_dominant_raw_colors_from_NASIS_db() #need the "unmixed" colors from NASIS, one each for moist and dry if available
+  hz <- horizons(p)
+  hz <- merge(hz, hz_color_nasis, by ="phiid")
+  hz <- hz[order(hz$hzdept,decreasing=F),]
+  if(length(hz)) {
+    hid <- intersectHorizon(p, min_surface, diag_depth) #start by checking whether the 18cm mixed reqs are met, if these aren't met than no need to look deeper
+    hz_overlay <- hz[(hz$phiid %in% hid),]
+    hz_overlay <- hz_overlay[order(hz_overlay$hzdept,decreasing=F),]
+    hz_overlay$weights = (hz_overlay$hzdepb - hz_overlay$hzdept)
+    cuml_weights <- cumsum(hz_overlay$weights)
+    outside_diag <- which(cuml_weights > 18)
+    partial = outside_diag[1] #take the first element where the cumulative sum exceeds the minimum diagnostic thickness
+    if(length(partial) > 0 & !is.na(partial)) {
+      if(partial > 1) {
+        hz_overlay$weights[outside_diag] <- 0 # set all subsequent weights to zero (really only should be one value in here if intersect works)
+        hz_overlay$weights[partial] = (18-cuml_weights[partial-1]) # augment the weight for the bottom-most partial horizon to reflect the portion that is diagnostic
+      }
+    }
+    
+    #calculate mixed (depth-weighted average) values and chroma
+    if(length(hz_overlay$rd_value) > 1) {
+      dry_val <- weighted.mean(hz_overlay$rd_value, hz_overlay$weights, na.rm = remove.na)
+    } else dry_val <- hz_overlay$rd_value
+    if(length(hz_overlay$rm_value) > 1) {
+      moi_val <- weighted.mean(hz_overlay$rm_value, hz_overlay$weights, na.rm = remove.na)
+    } else moi_val <- hz_overlay$rm_value
+    if(length(hz_overlay$rm_chroma) > 1) {
+      moi_chr <- weighted.mean(hz_overlay$rm_chroma, hz_overlay$weights, na.rm = remove.na)
+    } else moi_chr <- hz_overlay$rm_chroma
+    
+    #check whether the mixed 18cm surface meets base requirements for epipedon
+    mixed_dark_surface <- hasDarkColors(dry_val, moi_val, moi_chr, val_dry=val_dry, val_moist=val_moist, chr_moist=chr_moist)
+    
+    if(!bounds) #if bounds is FALSE, don't return the boundaries, just TRUE/FALSE for dark surface
+      return(mixed_dark_surface)
+    
+    #if bounds=TRUE, then we return the upper and lower depth of the dark surface
+    # weighted averaging no longer matters, just need to take the max depth that meets color reqs, and truncate to argillic upper bound
+    bound_subset <- intersectHorizon(p, min_surface, soil_depth) #get all mineral horizons
+    argillic_ubound <- getArgillicBounds(p)$ubound
+    
+    ldarkcol <-lapply(split(hz, f = hz$phiid), FUN=function(df) {
+      hasDarkColors(df$rd_value, df$rm_value, df$rm_chroma, val_dry=val_dry, val_moist=val_moist, chr_moist=chr_moist)
+    })
+  
+    # has_dark_colors retains the depth ordering, regardless of the numeric value of phiid
+    hz$has_dark_colors <- unlist(ldarkcol)[order(hz$phiid)]
+    
+    if(!is.null(hz$has_dark_colors)) {
+      idx <- which(hz$has_dark_colors & (hz$phiid %in% bound_subset)) #look at mineral horizons with dark colors
+      if(length(idx)) { #at least one hz with dark colors
+        discont <- which(idx >= idx[c(1,diff(idx)) > 1][1])
+        if(length(discont))
+           idx <- idx[-discont] #drop discontinuous dark horizons (assumes for now that uppermost hz is ok) TODO: test logic
+        if(length(idx)) {
+          dark_hz <- hz[idx,]
+          if(dark_hz[1,]$hzdept == min_surface) { # now check that first mineral is dark!
+            if(nrow(dark_hz) > 1) { # dark layer includes more than one dark horizon
+              for(d in 2:nrow(dark_hz)) {
+                mizz <- is.na(dark_hz[d,]$hzdept) | is.na(dark_hz[d-1,]$hzdepb)
+                if(mizz) 
+                  dark_hz <- dark_hz[-d, ] #remove horizons without necessary depths
+                else if(dark_hz[d,]$hzdept != dark_hz[d-1,]$hzdepb) #if the next horizon meeting color req is not continuous with the previous
+                  dark_hz <- dark_hz[-d, ] #remove it
+              }
+              dark_thickness <- sum((dark_hz$hzdepb-dark_hz$hzdept)) #calculate thickness of continuous dark horizons
+              if(dark_thickness >= minimum_thickness) { #if thickness of dark horizons is > minimum
+                dark_lbound <- max(dark_hz$hzdepb) #take the max bottom depth as the lower boundary
+              } else if(dark_thickness < minimum_thickness) { # whole dark horizon thicknesses sum to less than 18cm, still might meet dark surface 
+                if(dark_thickness > 10 & soil_depth < minimum_thickness) { #check for shallow soils (omit really thin epipedons)
+                  #TODO: hardcoded 10cm minimum for shallow case requires non-sandy textures
+                  if(max(dark_hz$hzdepb) == soil_depth) dark_lbound <- soil_depth
+                }
+                if((dark_thickness < minimum_thickness) & mixed_dark_surface) { #if the weighted averaging of a darkened and less dark hz got us below threshold
+                  dark_lbound <- diag_depth # use mineral surface + "minimum" thickness as lower bound (TODO: criteria for minimum thickness of epipedon)
+                }
+              }
+            } else { #one dark horizon, lower bound of potential epipedon is bottom depth
+              dark_lbound <- max(dark_hz$hzdepb) 
+              if(dark_lbound - min_surface < minimum_thickness) {
+                dark_lbound <- min_surface #if we have a dark surface horizon, but it is not thick enough, no dark surface
+                if(mixed_dark_surface) {
+                  #BUT if we made it by weighted averaging, use depth we averaged over
+                  dark_lbound <- diag_depth
+                }
+              }
+            }
+          } else dark_lbound <- min_surface # first mineral horizon isnt dark, no dark surface
+        } else dark_lbound <- min_surface # no continuous horizons with dark surface
+      } else dark_lbound <- min_surface # no horizons with dark colors, no dark surface
+      
+      if(length(argillic_ubound))
+        if(argillic_ubound != -Inf) {
+          if(dark_lbound > argillic_ubound)
+            dark_lbound <- argillic_ubound
+        }
+      
+      if(dark_lbound > soil_depth) 
+        dark_lbound <- soil_depth
+    }
+  } else {
+    #no color data at all
+    print(paste0("Pedon (", hz$peiid, ") lacks all color data; impossible to determine boundaries. Returning NA."))
+    dark_lbound <- min_surface
+  }
+  if(min_surface == dark_lbound)
+    return(data.frame(dsubound=NA, dslbound=NA))
+  return(data.frame(dsubound=min_surface, dslbound=dark_lbound))
+}
+
+is.between <- function(x, a, b) { 
+  x <- as.numeric(as.character(x)) #ensure that we will be able to evaluate, coerce to numeric
+  if(all(!is.na(x),!is.na(a),!is.na(b),!is.null(a),!is.null(b),length(x)>0,length(a)==1,length(b)==1))
+    if(as.numeric(x) <= b & as.numeric(x) > a) 
+      return(TRUE)
+  return(FALSE)
+}
+
+intersectHorizon <- function(pedon, z1, z2=NULL) {
+  hz <- horizons(pedon)
+  if(!missing(z2)) { # if a top and bottom depth are specified, we may intersect multiple horizons
+    foo <- numeric(0)
+    for(h in 1:nrow(hz)) {
+      hh <- hz[h,]
+      if(is.between(hh$hzdept, z1, z2) | is.between(hh$hzdepb, z1, z2)) 
+        foo <- c(foo, hh$phiid) # if one or both horizon boundaries falls between z1, z2 add pedon horizon to list
+    }
+    return(foo)
+  } else { # if just z1 is specified, we will return 1 horizon ID using default "within" logic (less than or equal to) for tie breaking
+    for(h in 1:nrow(hz)) {
+      hh <- hz[h,]
+      if(is.between(z1, hh$hzdept, hh$hzdepb)) 
+        return(hh$phiid)
+    }
+  }
+}
+
+getHorizonAt50cm <- function(p) {
+  hz <- horizons(p)
+  hid <- intersectHorizon(p, 50)
+  return(hz[(hz$phiid %in% hid),])
+}
+
+getHorizons50to100cm <- function(p) {
+  hz <- horizons(p)
+  hid <- intersectHorizon(p, 50, 100)
+  return(hz[(hz$phiid %in% hid),])
+}
+
 
 
