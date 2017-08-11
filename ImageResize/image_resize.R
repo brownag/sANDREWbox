@@ -38,7 +38,7 @@ isImage <- function(x) {
   return(grepl(x, pattern=paste0("\\.(",file.extensions,")$"), ignore.case=T))
 }
 
-for(p in filez) {
+lapply(filez, FUN=function(p) {  
   if(isImage(p)) { #if file has image extension
     img <- magick::image_read(p) #read image into memory
     img <- magick::image_scale(img, geom) #apply scaling transformation with user-specified geomoetry
@@ -47,6 +47,6 @@ for(p in filez) {
        dir.create(dirname(foo), recursive = T)
     magick::image_write(image = img, path = foo, format = out.format) #write scaled image to file
   }
-}
+})
 
 #img #show what image in memory in plot/graphics pane

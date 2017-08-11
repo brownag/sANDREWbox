@@ -22,7 +22,7 @@ mu_source <- 'L:/NRCS/MLRAShared/CA630/FG_CA630_OFFICIAL.gdb'
 mu_layer <- 'ca630_a'
 bdy_layer <- 'ca630_b'
 
-targetMU='607.|605.|620.|603.|8110'
+targetMU='.'
 ###
 ###
 ###
@@ -73,9 +73,9 @@ x.sub=x.sub[!is.na(x.sub$musym),] #kicks out NA (filtered) records
 #calculate some acreage information and print
 aoi_ac=floor(sum(s.sub$Shape_Area/4046.856))
 tot_ac=floor(sum(mu$Shape_Area/4046.856))
-print(paste('A total of',length(x.sub$musym), 'out of', length(x), 'pedons fall within the boundaries of the area of interest'))
-print(paste0("The area of interest spans ",aoi_ac," acres. This comprises ",floor(aoi_ac/tot_ac*100)," percent of the ",tot_ac," acres in the CA630 survey area"))
-print(paste0("On average there are ",round(length(x.sub$musym)/aoi_ac*1000,2)," pedons per 1000 acres in the area of interest."))
+print(paste('A total of',length(x.sub$musym), 'out of', length(x), 'pedons fall within the boundaries of the areas of interest.'))
+print(paste0("The area of interest spans ",aoi_ac," acres. This comprises ",floor(aoi_ac/tot_ac*100)," percent of the ",tot_ac," acres in the extent of the shapefile."))
+print(paste0("On average there are ",round(length(x.sub$musym)/aoi_ac*1000,2)," pedons per 1000 acres in the areas of interest."))
 
 #remove NAs
 idx <- which(!is.na(x.sub$musym))
@@ -90,7 +90,6 @@ x.mu$musym=y$musym
 setwd(outdir)
 
 #Count number of pedons per map unit and per map unit component
-
 if(!dir.exists("stats"))
   dir.create("stats")
 
