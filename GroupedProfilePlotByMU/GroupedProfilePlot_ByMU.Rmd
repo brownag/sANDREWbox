@@ -1,3 +1,23 @@
+---
+title: "GroupedProfilePlot by Mapunit"
+version:  "0.1"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+---
+  
+***
+  
+####Configuration
+```{r, echo=F, results='asis'}
+workdir <- "S:\\NRCS\\Archive_Andrew_Brown\\Scripts\\GroupedProfilePlotByMU\\" #directory containing script and output folders
+mu_source <- 'S:\\NRCS\\Archive_Andrew_Brown\\CA630\\Geodata\\geology' # polygon feature path 
+mu_layer <- 'outside_CA630_250k_geol' # polygon feature class for overlay NASIS pedons 
+poly_attribute <-  'GEN_FORM' #attribute containing unique identifyer of feature classes (e.g 'MUSYM')
+targetMU='.' # regular expressions specifying which mapunit symbols to make plots for
+```
+
+***
+```{r, echo=F, message=F, warning=F}
 # load required packages
 library(lattice)
 library(soilDB)
@@ -12,20 +32,6 @@ library(latticeExtra)
 library(plotrix)
 library(classInt)
 library(sharpshootR)
-###
-###
-###
-workdir <- "S:\\NRCS\\Archive_Andrew_Brown\\Scripts\\GroupedProfilePlotByMU\\"
-outdir <- paste0(workdir,"output\\")
-
-mu_source <- 'L:/NRCS/MLRAShared/CA630/FG_CA630_OFFICIAL.gdb'
-mu_layer <- 'ca630_a'
-bdy_layer <- 'ca630_b'
-
-targetMU='.'
-###
-###
-###
 
 setwd(workdir)
 
@@ -34,7 +40,10 @@ tps <- list(superpose.line=list(col=c('RoyalBlue', 'DarkRed', 'DarkGreen'), lwd=
 
 # Get map unit data
 mu <- readOGR(dsn = mu_source, layer = mu_layer, stringsAsFactors=FALSE)
-surveybdy <- readOGR(dsn = mu_source, layer = bdy_layer, stringsAsFactors=FALSE)
+
+if(!('MUSYM' %in% names(mu))) {
+  mu$MUSYM <- mu[[poly_attribute]]
+}
 
 # get pedon data
 x <- fetchNASIS()
@@ -58,36 +67,28 @@ x.sub <- as(x, 'SpatialPointsDataFrame')
 x.sub <- spTransform(x.sub, CRS(proj4string(mu)))
 
 # subset seleted map unit
-idx <- grep(targetMU, mu$MUSYM, ignore.case = TRUE)
-s.sub <- mu[idx , ]
+idx <- grep(targetMU, as.character(mu$MUSYM), ignore.case = TRUE)
+s.sub <- mu[idx, ]
 
-# copy MUSYM to pedons using spatial overlay
+# copy MUSYM to pedons using spatial overlay, drop non-overlapping
 x.sub$musym <- over(x.sub, s.sub)$MUSYM
-
-#title(targetMU)
-#plot(surveybdy)
-#plot(s.sub,add=TRUE)
-
-x.sub=x.sub[!is.na(x.sub$musym),] #kicks out NA (filtered) records
+x.sub <- x.sub[!is.na(x.sub$musym),] 
 
 #calculate some acreage information and print
-aoi_ac=floor(sum(s.sub$Shape_Area/4046.856))
-tot_ac=floor(sum(mu$Shape_Area/4046.856))
+aoi_ac <- floor(sum(s.sub$Shape_Area / 4046.856)) #sum the area of the mapunit subset
+tot_ac <- floor(sum(mu$Shape_Area / 4046.856))    #sum the area of the whole mapunit file
 print(paste('A total of',length(x.sub$musym), 'out of', length(x), 'pedons fall within the boundaries of the areas of interest.'))
 print(paste0("The area of interest spans ",aoi_ac," acres. This comprises ",floor(aoi_ac/tot_ac*100)," percent of the ",tot_ac," acres in the extent of the shapefile."))
 print(paste0("On average there are ",round(length(x.sub$musym)/aoi_ac*1000,2)," pedons per 1000 acres in the areas of interest."))
 
-#remove NAs
-idx <- which(!is.na(x.sub$musym))
-y <- x.sub[idx, ]
+# #remove NAs
+ idx <- which(!is.na(x.sub$musym))
+ y <- x.sub[idx, ]
 
 # get profiles in x whose peiid are in subset y
 idx <- which(profile_id(x) %in% y$peiid)
-x.mu <- x[idx, ]
-x.mu$musym=y$musym
-
-#get ready to write output 
-setwd(outdir)
+ x.mu <- x[idx, ]
+ x.mu$musym=y$musym
 
 #Count number of pedons per map unit and per map unit component
 if(!dir.exists("stats"))
@@ -102,34 +103,38 @@ write.csv(file='stats\\pedons_perECOS.csv',x=aggregate(data.frame(n=x.sub$musym)
 #gives # of pedons per mapunit per ecosite
 write.csv(file='stats\\pedons_perMU_perECOS.csv',x=aggregate(data.frame(n=x.sub$musym),by=list(MUSYM=x.sub$musym, ECOSITE=x.sub$ecositeid),FUN=length))
 
-
-# Plot ordering by taxonname
-par(mar=c(1,1,5,1))#,mfrow=c(4,1))
+#loop though all map unit symbols
 mufact=factor(x.sub$musym)
 for(f in levels(mufact)) {
   sx.mu=x.mu[which(x.mu$musym == f)]
   
+  #write table with site data, one per mapunit
   if(!dir.exists("csv"))
     dir.create("csv")
-  
   write.csv(site(sx.mu),file = paste0("./csv/",f,".csv"))
   
+  #write file with just pedon record id as comma-separated list, one per mapunit
   if(!dir.exists("pedonlists"))
     dir.create("pedonlists")
-  
   write(paste0(site(sx.mu)$peiid,collapse=","),sep="",file = paste0("./pedonlists/",f,".csv"))
   
+  #make sure output folder for grouped profile plots (one per mapunit) exists
+  if(!dir.exists("gpps"))
+    dir.create("gpps")
+
+  #make and save grouped profile plot
   if(nrow(sx.mu) > 0) {
-    if(f != "1031?") { 
-      #TODO: do a proper check for non-canonical MUSYMs that contain illegal characters for filenames... 
-      #      but not as restrictive as requiring a numeric musym
-      pdf(file = paste0(f,".pdf"),width=11,height=8.5) 
-      groupedProfilePlot(sx.mu, groups = 'taxonname', alt.label='ecositeid', alt.label.col='black', label='pedon_id', print.id = TRUE, id.style = 'side', cex.id=0.6, cex.names=0.6, y.offset=7, axis.line.offset=-2.5, group.name.cex=0.5, group.name.offset = -6, color='clay')
-      title(paste(f,'Grouped Profile Plot\n\n'))
-      dev.off()
+    if(!grepl(f, pattern='[/\\|<>:\\*?\"]')) { #check for illegal filename characters in musym
+      fnew <- gsub(f, pattern='([/\\|<>:\\*?\"])', replacement="BadChar")
+      print(paste0("Replacing bad file name ", f, ".pdf with ", fnew, ".pdf"))
+      f <- fnew
     }
+    pdf(file = paste0("gpps\\",f,".pdf"),width=11,height=8.5) 
+    groupedProfilePlot(sx.mu, groups = 'taxonname', alt.label='ecositeid', alt.label.col='black', label='pedon_id', print.id = TRUE, id.style = 'side', cex.id=0.6, cex.names=0.6, y.offset=7, axis.line.offset=-2.5, group.name.cex=0.5, group.name.offset = -6, color='clay')
+    title(paste(f,'Grouped Profile Plot\n\n'))
+    dev.off()
   } else {
     print(paste0("No pedons in MUSYM ",f,"!"))
   }
 }
-
+```
