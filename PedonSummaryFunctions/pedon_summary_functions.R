@@ -435,6 +435,10 @@ hasDarkMineralSurface <- function(p, bounds=FALSE, val_dry=5, val_moist=3, chr_m
         if(argillic_ubound != -Inf) {
           if(dark_lbound > argillic_ubound)
             dark_lbound <- argillic_ubound
+            if(mixed_dark_surface) {
+              #BUT if we made it by weighted averaging, use depth we averaged over
+              dark_lbound <- diag_depth
+            }
         }
       
       if(dark_lbound > soil_depth) 
