@@ -1,0 +1,168 @@
+---
+title: "Pedon Mapunit and Area Overlap Report"
+author: "Andrew Brown"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+---
+
+```{r,echo=F}
+library(rgdal)
+library(soilDB)
+library(pacman)
+
+mu <- readOGR(dsn = 'L:/CA630/FG_CA630_OFFICIAL.gdb', layer = 'ca630_a', stringsAsFactors=FALSE)
+surveybdy <- readOGR(dsn = 'L:/CA630/FG_CA630_OFFICIAL.gdb', layer = 'ca630_b', stringsAsFactors=FALSE)
+mlrabdy <- readOGR(dsn = 'F:/Geodata/mlra', layer = 'mlra_z10_a_mo2', stringsAsFactors=F)
+
+surveybdy$areasymbol <- "CA630"
+
+x <- fetchNASIS()
+x$taxonname = toupper(x$taxonname)
+
+good.idx <- which(!is.na(x$x_std))
+x.bad <- x[-good.idx, ]
+x <- x[good.idx, ]
+coordinates(x) <- ~ x_std + y_std
+proj4string(x) <- '+proj=longlat +datum=NAD83'
+x.sub <- as(x, 'SpatialPointsDataFrame')
+x.sub <- spTransform(x.sub, CRS(proj4string(mu)))
+site(x)$musym <- over(x.sub, mu)$MUSYM 
+x.sub <- spTransform(x.sub, CRS(proj4string(surveybdy)))
+site(x)$areasym[!is.na(over(x.sub, surveybdy)[,1])] <- surveybdy$areasymbol
+x.sub <- spTransform(x.sub, CRS(proj4string(mlrabdy)))
+site(x)$mlra <-over(x.sub, mlrabdy)$MLRA2002
+```
+
+```{r, echo=F}
+get_site_area_info_from_NASIS_db <- function() {
+  if(!requireNamespace('RODBC'))
+    stop('please install the `RODBC` package', call.=FALSE)
+  q <- "SELECT siteiid as siteiid, usiteid, stateareaiidref, stateareatypeiidref, countyareaiidref, countyareatypeiidref, mlraareaiidref, mlraareatypeiidref FROM site;"
+  channel <- RODBC::odbcDriverConnect(connection="DSN=nasis_local;UID=NasisSqlRO;PWD=nasisRe@d0n1y")
+  d <- RODBC::sqlQuery(channel, q, stringsAsFactors=FALSE)
+  RODBC::odbcClose(channel)
+  return(d)
+}
+
+get_site_area_overlap_from_NASIS_db <- function() {
+  if(!requireNamespace('RODBC'))
+    stop('please install the `RODBC` package', call.=FALSE)
+  q <- "SELECT siteiidref as sareaoviid, siteiidref, areaiidref, recwlupdated, recuseriidref FROM siteaoverlap;"
+  channel <- RODBC::odbcDriverConnect(connection="DSN=nasis_local;UID=NasisSqlRO;PWD=nasisRe@d0n1y")
+  d <- RODBC::sqlQuery(channel, q, stringsAsFactors=FALSE)
+  RODBC::odbcClose(channel)
+  return(d)
+}
+
+get_site_mu_overlap_from_NASIS_db <- function() {
+  if(!requireNamespace('RODBC'))
+    stop('please install the `RODBC` package', call.=FALSE)
+  q <- "SELECT smuoviid as smuoviid, siteiidref, lmapunitiidref, recwlupdated, recuseriidref FROM sitemuoverlap;"
+  channel <- RODBC::odbcDriverConnect(connection="DSN=nasis_local;UID=NasisSqlRO;PWD=nasisRe@d0n1y")
+  d <- RODBC::sqlQuery(channel, q, stringsAsFactors=FALSE)
+  RODBC::odbcClose(channel)
+  return(d)
+}
+
+get_legend_mu_from_NASIS_db <- function() {
+  if(!requireNamespace('RODBC'))
+    stop('please install the `RODBC` package', call.=FALSE)
+  q <- "SELECT lmapunitiid as liidref, lmapunitiid, musym, muiidref, mustatus, muacres, farmlndcl, farmlndclsec, recwlupdated, recuseriidref FROM lmapunit;"
+  channel <- RODBC::odbcDriverConnect(connection="DSN=nasis_local;UID=NasisSqlRO;PWD=nasisRe@d0n1y")
+  d <- RODBC::sqlQuery(channel, q, stringsAsFactors=FALSE)
+  RODBC::odbcClose(channel)
+  return(d)
+}
+
+get_area_NASIS_db <- function() {
+  if(!requireNamespace('RODBC'))
+    stop('please install the `RODBC` package', call.=FALSE)
+  q <- "SELECT areatypeiidref as areatypeiidref, areaiid, areasymbol, areaname, areaacres, obterm FROM area;"
+  channel <- RODBC::odbcDriverConnect(connection="DSN=nasis_local;UID=NasisSqlRO;PWD=nasisRe@d0n1y")
+  d <- RODBC::sqlQuery(channel, q, stringsAsFactors=FALSE)
+  RODBC::odbcClose(channel)
+  return(d)
+}
+
+site_info <- get_site_area_info_from_NASIS_db()
+site_area_overlap <- get_site_area_overlap_from_NASIS_db()
+site_mu_overlap <- get_site_mu_overlap_from_NASIS_db()
+legend_mu <- get_legend_mu_from_NASIS_db()
+area_info <- get_area_NASIS_db()
+
+area_sym_list = area_name_list = area_acres_list = list()
+area_sym_list[area_info$areaiid] = area_info$areasymbol
+area_name_list[area_info$areaiid] = area_info$areaname
+area_acres_list[area_info$areaiid] = area_info$areaacres
+
+site <- merge(site_info,site_area_overlap,by.x="siteiid",by.y="siteiidref")
+
+site$stateareasym <- area_sym_list[site$stateareaiidref]
+site$stateareaname <- area_name_list[site$stateareaiidref]
+site$stateareaacres <- area_acres_list[site$stateareaiidref]
+
+site$countyareasym <- area_sym_list[site$countyareaiidref]
+site$countyareaname <- area_name_list[site$countyareaiidref]
+site$countyareaacres <- area_acres_list[site$countyareaiidref]
+
+site$mlraareasym <- area_sym_list[site$mlraareaiidref]
+site$mlraareaname <- area_name_list[site$mlraareaiidref]
+
+site$areaoverlapsym <- area_sym_list[site$areaiidref]
+site$areaoverlapname <- area_name_list[site$areaiidref]
+site_area = site #site area contains the data (usually multople areas per site) from AREA overlap table
+
+df_site_area <- aggregate(cbind(site_area$usiteid, site_area$areaoverlapsym),by = list(site_area$usiteid), FUN=paste)[,c(1,3)]
+names(df_site_area) <- c("USERSITEID", "AREAOVERLAP")
+
+site_mu = merge(site_info[,1:2],site_mu_overlap,by.x="siteiid",by.y="siteiidref")
+site_mu = merge(site_mu, legend_mu, by.x="lmapunitiidref", by.y="lmapunitiid")
+
+# S <- site[site$usiteid == "06CA630JCR002",]
+# smu <- site_mu[site_mu$usiteid == "06CA630JCR002",] ### sanity check!
+```
+
+```{r}
+#lets consolidate...
+gis_names = c("peiid", "pedon_id", "siteiid", "site_id", "obs_date", "utmzone", "utmeasting" , "utmnorthing" ,"x","y","datum","musym","areasym","mlra")
+nasis_areao_names = c("siteiid","usiteid","stateareasym","countyareasym","mlraareasym","areaoverlapsym")
+nasis_muo_names = c("siteiid","usiteid","musym")
+
+gis <- site(x)[,gis_names]
+areao <- site_area[,nasis_areao_names]
+areao_flat <- df_site_area
+muo <- site_mu[,nasis_muo_names]
+nrow(gis) #number of records with valid spatial data WITH a pedon record... can we just pull site data?
+nrow(areao_flat) #number of records with one or more areaoverlap records (flattened to one record using agg->paste)
+nrow(muo) #number of pedons in nasis with mapunit overlap set
+
+#most serious order of business... which pedons have been assigned a MU in muoverlap... but are no longer in that mapunit!
+gis$musym_match <- NA
+compare.idx <- which(gis$site_id %in% muo$usiteid)
+for(c in compare.idx) {
+  rec = muo[which(gis[c,]$site_id == muo$usiteid),]
+  if(is.na(gis[c,]$musym)) {
+    gis[c,]$musym_match = -1
+  } else if(any(gis[c,]$musym != rec$musym)) {
+    gis[c,]$musym_match = 0
+  } else {
+    gis[c,]$musym_match = 1
+  }
+}
+
+#list of pedons with incorrect muoverlap
+gis_inc <- gis[which(gis$musym_match != 1),]
+write.csv(file="sites_incorrect_muoverlap.csv",x=gis_inc)
+
+#list of sites with NO muoverlap
+gis_nomuo <-  gis[-compare.idx,]
+write.csv(file="sites_no_muoverlap.csv",x=gis_nomuo)
+
+#this spits out the number of muoverlap records that are -1:nogiscomparison;0:incorrect;1:correct
+aggregate(gis$musym_match,by=list(gis$musym_match),FUN=length)
+
+#this spits out any user site ids with multiple MUs assigned in MUoverlap 
+muo[which(aggregate(muo$musym, by=list(muo$siteiid), FUN=length)[,2] > 1),]$usiteid
+
+#this spits out potential copied site records (i.e. same user site id)
+muo[which(aggregate(muo$musym, by=list(muo$usiteid), FUN=length)[,2] > 1),]$usiteid
