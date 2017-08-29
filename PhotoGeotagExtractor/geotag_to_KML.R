@@ -5,7 +5,8 @@
 ### install & load required packages, if needed
 packz <- c("sp","rgdal","stringr","pixmap","RCurl","utils","magick","dtw","proxy")
 newpackz <- packz[!(packz %in% installed.packages()[,"Package"])]
-if(length(newpackz)) install.packages(newpackz)
+if(length(newpackz)) 
+  install.packages(newpackz)
 loaded <- lapply(packz,FUN=require,character.only=TRUE)
 if(sum(as.numeric(loaded))!=length(packz)) {
   stop("Failed to load one or more required packages!")
@@ -14,8 +15,8 @@ if(sum(as.numeric(loaded))!=length(packz)) {
 
 ###SETUP###
 #User-defined settings
-threshold_dist <- 20               #meters; maximum distance between points for cluster membership and naming from DP
-threshold_time <- 20               #minutes; maximum time between points for cluster membership
+threshold_dist <- 25              #meters; maximum distance between points for cluster membership and naming from DP
+threshold_time <- 55               #minutes; maximum time between points for cluster membership
 
 make_kmz <- TRUE              #requires WinZip. Creates a standalone file containing KML and images
 
@@ -34,13 +35,15 @@ placemark_postfix_start <- 53 #default numbering starts from 1. Change to the fi
 
 placemark_prefix <- "2016CA63060" #default: ""; string to precede the site ID number. can be used to make e.g. NASIS user site IDs. 
 
-point_source = 'L:/NRCS/MLRAShared/CA630/FG_CA630_OFFICIAL.gdb' #path to feature class containing existing site points for labeling clusters
+#point_source = 'L:/NRCS/MLRAShared/CA630/FG_CA630_OFFICIAL.gdb' #path to feature class containing existing site points for labeling clusters
+point_source = 'S://NRCS//Archive_Andrew_Brown//CA792//Points'
 
-point_layer = 'ca630_dp' #what layer to use within geodatabase. supplied to rgdal::readOGR()
+#point_layer = 'ca630_dp' #what layer to use within geodatabase. supplied to rgdal::readOGR()
+point_layer = "SEKI-2017_0824-pedons"
 
 centroid_function <- mean     #default: mean; function to use for aggregating x,y,z data from multiple images in a cluster;
 
-script_dir <- "E:/scripts/geotag_to_KML/"    #path to script directory (e.g. git repository instance)
+script_dir <- "S:/NRCS/Archive_Andrew_Brown/Scripts/PhotoGeotagExtractor/"    #path to script directory (e.g. git repository instance)
 
 image_directory <- paste0(script_dir,"~to_sort")
 
@@ -49,7 +52,8 @@ output_path <- paste0(script_dir,"~sorted") #this is the path to KML/KMZ output 
 #Implementation specific parameters
 template_file <- 'kml_template.dat'
 device_projection <- '+proj=longlat +datum=WGS84'           #projection information for data extracted from EXIF
-device_timezone <- 'PST'                                    #timezone for data extracted from EXIF
+device_timezone <- Sys.timezone(location=TRUE)              #timezone associated with device, used for coercing date objects; 
+                                                            #if device is set up for your locale leave Sys.timezone() call as is
 
 #External dependencies
 exiftool_path <- paste0(script_dir,"exiftool(-k).exe")          #this executable is required for extracting EXIF data from JPGs
@@ -152,23 +156,26 @@ for(g in exiftool_callz) {
     latz <- getDecDegrees(l[["GPS Latitude"]])
     lngz <- getDecDegrees(l[["GPS Longitude"]])
     beaz <- NA
-    try(expr=(beaz<-as.numeric(l[['GPS Img Direction']])),silent = TRUE) #sometimes this fails w/ no bearing information, so we do not require it above
+    try(expr=(beaz <- as.numeric(l[['GPS Img Direction']])), silent = TRUE) #sometimes fails w/ no bearing information 
+                                                                          #(i.e. device does records location but not bearing), so we do not require it
     imghz <- as.numeric(l[['Image Height']])
     imgwz <- as.numeric(l[['Image Width']])
-    dat <- rbind(dat,data.frame(path=pname,filename=fname, date=datz, lat=latz, lng=lngz, elev=elez, bearing=beaz, imgh=imghz, imgw=imgwz))
+    dat <- rbind(dat, data.frame(path=pname,filename=fname, date=datz, lat=latz, lng=lngz, elev=elez, bearing=beaz, imgh=imghz, imgw=imgwz))
   } else if (sum(field_names_min %in% names(l)) >= length(field_names_min)) {
     pname <- paste0(l[['Directory']],'/',l[['File Name']])
     fname <- l[['File Name']]
     print(l[["Date/Time Original"]])#debug
-    datz <- strptime(l[["Date/Time Original"]],"%Y:%m:%d %H:%M:%S",tz="America/Los_Angeles")
+    datz <- strptime(l[["Date/Time Original"]],"%Y:%m:%d %H:%M:%S", tz=device_timezone)
     imghz <- as.numeric(l[['Image Height']])
     imgwz <- as.numeric(l[['Image Width']])
-    dat <- rbind(dat,data.frame(path=pname,filename=fname, date=datz, lat=NA, lng=NA, elev=NA, bearing=NA, imgh=imghz, imgw=imgwz))
+    dat <- rbind(dat, data.frame(path=pname, filename=fname, date=datz, lat=NA, lng=NA, elev=NA, bearing=NA, imgh=imghz, imgw=imgwz))
   } else {
     #This shouldn't happen unless something is wrong with the exiftool call/paths
     message("Cannot get EXIF data for image!")
   }
 }
+
+dat_bak <- dat #debug
 
 #now we have a data frame with one record per image; some may have spatial info others may just have timestamp
 idx.no_sp = which(is.na(dat$lat)) #if latitude is NA then we will assume spatial info is missing and subset those out
@@ -180,23 +187,24 @@ if(length(idx.no_sp) > 0)
 
 #if any of the images are missing spatial data, use timestamp clustering based on the supplied point file 
 
-timepoints <- readOGR(dsn = "E:\\Points", layer = "02.01.17", stringsAsFactors=FALSE) 
+timepoints <- dp_points #readOGR(dsn = "E:\\Points", layer = "02.01.17", stringsAsFactors=FALSE) 
 dptimes <- as.numeric(as.POSIXct(strptime(timepoints$time,"%Y/%m/%d %H:%M:%S",tz = "GMT")))
 placemark_names_min=c()
 dp_points_tagged_min=0
 if(nrow(dat_min) > 0) {
-  distmat <- dist(dat_min$date)
+  distmat <- proxy::dist(as.list(dat_min$date)) #returns distance in DECIMAL MINUTES
   hr <- hclust(distmat, method = "complete", members=NULL)
   plot(hr)
-  dat_min$centroid=cutree(hr, h=threshold_time*60)
-  c_times <- as.numeric(as.POSIXlt(aggregate(dat_min$date,by=list(dat_min$centroid),FUN=mean)[,2],tz="GMT"))
+  dat_min$centroid <- cutree(hr, h=threshold_time) #threshold time represented in MINUTES
+  c_times <- as.numeric(as.POSIXlt(aggregate(dat_min$date,by=list(dat_min$centroid),FUN=mean)[,2], tz=device_olson_name)) #calculate centroid time
   dat_min$c_time=NA
   if(name_by_nearby_point) {
     for(c in 1:length(levels(factor(dat_min$centroid)))) {
       idx <- which(dat_min$centroid == c)
       dat_min$c_time[idx] = c_times[c]
       diffz=abs(as.numeric(c_times[c] - dptimes))
-      diffz[which(diffz>threshold_time*60)] = NA
+      print(diffz/60)
+      diffz[which(diffz > threshold_time*60)] = NA
       if(sum(is.na(diffz)) == length(diffz)) {
         print(paste0("Failed to identify a user site ID for cluster: ",c))
         placemark_names_min <- c(placemark_names_min,paste0(c))
@@ -207,13 +215,14 @@ if(nrow(dat_min) > 0) {
         dp_points_tagged_min <- dp_points_tagged_min+1
       }
     }  
-    print(paste0("Tagged ",dp_points_tagged_min, " out of ", length(placemark_names_min), " clusters to existing points in the DP layer."))
+    print(paste0("Tagged ", dp_points_tagged_min, " out of ", length(placemark_names_min), " clusters to existing points in the DP layer."))
   } else {
     placemark_names_min <- c(placemark_names_min,paste0(c))
   } 
 }
 
 #if any of the images have spatial data, go a ahead with the spatial clustering
+#dat <- dat_bak
 if(nrow(dat) > 0) { 
   #elevate dataframe to SpatialPointsDataFrame and specify device projection system
   coordinates(dat) <- ~lng+lat
@@ -256,18 +265,18 @@ if(nrow(dat) > 0) {
     #try to name centroids based on DP layer points within threshold distance
     dat_dp <- spTransform(dat2,proj4string(dp_points)) # convert to CRS of dp layer
     for(ddp in 1:length(ncclust)) {
-      sdat_dp <- dat_dp[which(dat_dp$centroid == ddp),]
-      dpdistz <- spDistsN1(pt=coordinates(sdat_dp)[1,1:2],pts=dp_points) #calculates distances from all centroids to all dp points
+      sdat_dp <- dat_dp[which(dat_dp$centroid == ddp),] #subset pictures from one cluster
+      dpdistz <- spDistsN1(pt=coordinates(sdat_dp)[1,1:2],pts=dp_points) #calculates distances from dp points to all pictures in cluster
       dpid <- which(dpdistz==min(dpdistz))[1] #if multiple meet the threshold, take the first (closest)
-      print(paste("Cluster",ddp,"is",dpdistz[dpid],"meters from",dp_points[dpid,]$IDENT)) 
+      print(paste("Cluster",ddp,"is",dpdistz[dpid],"meters from",dp_points[dpid,]$ident)) 
       if(dpdistz[dpid] <= threshold_dist) {
-        placemark_names <- c(placemark_names,(dp_points[dpid,]$IDENT))
+        placemark_names <- c(placemark_names,(dp_points[dpid,]$ident))
         dp_points_tagged <- dp_points_tagged+1
       } else {
         placemark_names <- c(placemark_names,paste0(ddp))
       }  
     }
-    print(paste0("Tagged ",dp_points_tagged, " out of ", length(placemark_names), " clusters to existing points in the DP layer."))
+    print(paste0("Tagged ",dp_points_tagged, " out of ", length(ncclust), " clusters to existing points in the DP layer."))
   }
 }
 
