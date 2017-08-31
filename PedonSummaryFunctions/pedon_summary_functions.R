@@ -209,7 +209,7 @@ estimatePSCS = function(p) {
     }  
   
   #Adjust PSCS range downward if organic soil material is present at surface (i.e. mineral soil surface depth > 0)
-  odepth=getMineralSoilSurfaceDepth(p) 
+  odepth <- getMineralSoilSurfaceDepth(p) 
   if(odepth > 0) {
     default_t = default_t + odepth
     if(default_b != soildepth)
@@ -247,7 +247,7 @@ estimatePSCS = function(p) {
     default_b = soildepth
   }
   
-  return(c(default_t,default_b))
+  return(as.numeric(c(default_t,default_b)))
 }
 
 get_raw_colors_from_NASIS_db <- function ()  {
@@ -345,7 +345,7 @@ hasDarkMineralSurface <- function(p, bounds=FALSE, val_dry=5, val_moist=3, chr_m
   hz <- merge(hz, hz_color_nasis, by ="phiid")
   hz <- hz[order(hz$hzdept,decreasing=F),]
   if(length(hz)) {
-    hid <- intersectHorizon(p, min_surface, diag_depth) #start by checking whether the 18cm mixed reqs are met, if these aren't met than no need to look deeper
+    hid <- intersectHorizon(p, min_surface, diag_depth) #start by checking whether the 18cm mixed reqs are met, if these aren't met then no need to look deeper
     hz_overlay <- hz[(hz$phiid %in% hid),]
     hz_overlay <- hz_overlay[order(hz_overlay$hzdept,decreasing=F),]
     hz_overlay$weights = (hz_overlay$hzdepb - hz_overlay$hzdept)
@@ -355,7 +355,7 @@ hasDarkMineralSurface <- function(p, bounds=FALSE, val_dry=5, val_moist=3, chr_m
     if(length(partial) > 0 & !is.na(partial)) {
       if(partial > 1) {
         hz_overlay$weights[outside_diag] <- 0 # set all subsequent weights to zero (really only should be one value in here if intersect works)
-        hz_overlay$weights[partial] = (18-cuml_weights[partial-1]) # augment the weight for the bottom-most partial horizon to reflect the portion that is diagnostic
+        hz_overlay$weights[partial] = (18-cuml_weights[partial-1]) # augment the weight for the bottom-most (partial) horizon to reflect the portion that is within boundaries
       }
     }
     
