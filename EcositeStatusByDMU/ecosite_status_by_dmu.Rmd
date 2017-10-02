@@ -12,7 +12,7 @@ output: html_document
 ###
 #Enter a regex pattern to match dmudesc
 ###
-dmupattern = "302.|303.|404."
+dmupattern = "8[12].."
 cat("DMUID Pattern: ",dmupattern)
 ##################################
 
@@ -159,9 +159,9 @@ ce$user_name <- join(ce,users,by="recuseriidref")$username
 #simplify drainage class to improve printing appearance; 
 #       could relevel factors explicitly but that would be dependent on all classes occuring in the original dataset.
 ce$drainage <- sub(pattern="drained",replacement="",x=as.character(ce$drainagecl))
-ce$drainage <- sub(pattern="Somewhat",replacement="S",x=as.character(ce$drainage))
+ce$drainage <- sub(pattern="[Ss]omewhat",replacement="S",x=as.character(ce$drainage))
 ce$drainage <- sub(pattern="[Ww]ell",replacement="W",x=as.character(ce$drainage))
-ce$drainage <- sub(pattern="Moderately",replacement="M",x=as.character(ce$drainage))
+ce$drainage <- sub(pattern="[Mm]oderately",replacement="M",x=as.character(ce$drainage))
 ce$drainage <- sub(pattern="[Ee]xcessively",replacement="E",x=as.character(ce$drainage))
 ce$drainage <- sub(pattern="[Pp]oorly",replacement="P",x=as.character(ce$drainage))
 ce$drainage <- sub(pattern=" ",replacement="",x=as.character(ce$drainage))

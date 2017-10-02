@@ -10,9 +10,11 @@ output: html_document
 ####Configuration
 ```{r, echo=F, results='asis'}
 workdir <- "S:\\NRCS\\Archive_Andrew_Brown\\Scripts\\GroupedProfilePlotByMU\\" #directory containing script and output folders
-mu_source <- 'L:\\NRCS/MLRAShared/CA630/FG_CA630_OFFICIAL.gdb' # polygon feature path 
-mu_layer <- 'ca630_a' # polygon feature class for overlay NASIS pedons 
-poly_attribute <-  'MUSYM' #attribute containing unique identifyer of feature classes (e.g 'MUSYM')
+mu_source <- 'S:/NRCS/Archive_Andrew_Brown/CA630/Ecosites' # polygon feature path 
+mu_layer <- 'mesic_mehrten_LRU_newsyms' # polygon feature class for overlay NASIS pedons 
+
+output_directory <- "gpps_mehrten_lrusplit"
+poly_attribute <-  'newmusym' #attribute containing unique identifyer of feature classes (e.g 'MUSYM')
 targetMU='.' # regular expressions specifying which mapunit symbols to make plots for
 ```
 
@@ -41,7 +43,7 @@ tps <- list(superpose.line=list(col=c('RoyalBlue', 'DarkRed', 'DarkGreen'), lwd=
 # Get map unit data
 mu <- readOGR(dsn = mu_source, layer = mu_layer, stringsAsFactors=FALSE)
 
-if(!('MUSYM' %in% names(mu))) {
+if(!('MUSYM' %in% names(mu)) | poly_attribute != 'MUSYM') {
   mu$MUSYM <- mu[[poly_attribute]]
 }
 
@@ -119,8 +121,8 @@ for(f in levels(mufact)) {
   write(paste0(site(sx.mu)$peiid,collapse=","),sep="",file = paste0("./pedonlists/",f,".csv"))
   
   #make sure output folder for grouped profile plots (one per mapunit) exists
-  if(!dir.exists("gpps"))
-    dir.create("gpps")
+  if(!dir.exists(output_directory))
+    dir.create(output_directory)
 
   #make and save grouped profile plot
   if(nrow(sx.mu) > 0) {
@@ -130,7 +132,7 @@ for(f in levels(mufact)) {
       f <- fnew
     }
     if(typeof(try( {
-      pdf(file = paste0("gpps\\",f,".pdf"), width=11, height=8.5) 
+      pdf(file = paste0(output_directory,"\\",f,".pdf"), width=11, height=8.5) 
       groupedProfilePlot(sx.mu, groups = 'taxonname', alt.label='ecositeid', alt.label.col='black', label='pedon_id', print.id = TRUE, id.style = 'side', cex.id=0.7, cex.names=0.7, y.offset=7, axis.line.offset=-2.5, group.line.lwd = 1, group.line.lty = 1, group.name.cex=0.5, group.name.offset = c(-6,-10), color='clay')
       title(paste(f,'Grouped Profile Plot\n\n'))
       dev.off()

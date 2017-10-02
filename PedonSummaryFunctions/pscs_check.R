@@ -1,4 +1,4 @@
-source("pedon_summary_functions.R")
+source("PedonSummaryFunctions\\pedon_summary_functions.R")
 
 #get the data
 library(soilDB)
