@@ -10,9 +10,9 @@ output: html_document
 ####Configuration
 ```{r, echo=F, results='asis'}
 workdir <- "S:\\NRCS\\Archive_Andrew_Brown\\Scripts\\GroupedProfilePlotByMU\\" #directory containing script and output folders
-mu_source <- 'S:\\NRCS\\Archive_Andrew_Brown\\CA630\\Geodata\\geology' # polygon feature path 
-mu_layer <- 'outside_CA630_250k_geol' # polygon feature class for overlay NASIS pedons 
-poly_attribute <-  'GEN_FORM' #attribute containing unique identifyer of feature classes (e.g 'MUSYM')
+mu_source <- 'L:\\NRCS/MLRAShared/CA630/FG_CA630_OFFICIAL.gdb' # polygon feature path 
+mu_layer <- 'ca630_a' # polygon feature class for overlay NASIS pedons 
+poly_attribute <-  'MUSYM' #attribute containing unique identifyer of feature classes (e.g 'MUSYM')
 targetMU='.' # regular expressions specifying which mapunit symbols to make plots for
 ```
 
@@ -124,15 +124,18 @@ for(f in levels(mufact)) {
 
   #make and save grouped profile plot
   if(nrow(sx.mu) > 0) {
-    if(!grepl(f, pattern='[/\\|<>:\\*?\"]')) { #check for illegal filename characters in musym
+    if(grepl(f, pattern='[/\\|<>:\\*?\"]')) { #check for illegal filename characters in musym
       fnew <- gsub(f, pattern='([/\\|<>:\\*?\"])', replacement="BadChar")
       print(paste0("Replacing bad file name ", f, ".pdf with ", fnew, ".pdf"))
       f <- fnew
     }
-    pdf(file = paste0("gpps\\",f,".pdf"),width=11,height=8.5) 
-    groupedProfilePlot(sx.mu, groups = 'taxonname', alt.label='ecositeid', alt.label.col='black', label='pedon_id', print.id = TRUE, id.style = 'side', cex.id=0.6, cex.names=0.6, y.offset=7, axis.line.offset=-2.5, group.name.cex=0.5, group.name.offset = -6, color='clay')
-    title(paste(f,'Grouped Profile Plot\n\n'))
-    dev.off()
+    if(typeof(try( {
+      pdf(file = paste0("gpps\\",f,".pdf"), width=11, height=8.5) 
+      groupedProfilePlot(sx.mu, groups = 'taxonname', alt.label='ecositeid', alt.label.col='black', label='pedon_id', print.id = TRUE, id.style = 'side', cex.id=0.7, cex.names=0.7, y.offset=7, axis.line.offset=-2.5, group.line.lwd = 1, group.line.lty = 1, group.name.cex=0.5, group.name.offset = c(-6,-10), color='clay')
+      title(paste(f,'Grouped Profile Plot\n\n'))
+      dev.off()
+    })) == "try-error")
+      print(paste0("Failed to create profile plot for ",f,". There is at least one site/pedon record in this MU, but it may not have sufficient data or variability to generate a legend."))
   } else {
     print(paste0("No pedons in MUSYM ",f,"!"))
   }

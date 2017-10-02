@@ -19,11 +19,10 @@ has_epipedon <- do.call(rbind,profileApply(f,FUN=hasDarkMineralSurface, bounds=T
 #merge and check for matches of top and bottom depth
 has_epipedon$peiid <- rownames(has_epipedon)
 foo4 <- merge(foo2, has_epipedon, by="peiid")
+foo4$pedon_id <- merge(foo2, site(f), by="peiid")$pedon_id
 foo4$tmatch <- foo4$featdept == foo4$dsubound
 foo4$bmatch <- foo4$featdepb == foo4$dslbound
 foo4$match <-  foo4$tmatch & foo4$bmatch
 
 #write output
 write.csv(foo4,file="PedonSummaryFunctions\\dark_epipedon_check.csv")
-
-p<-f[which(site(f)$peiid==260218),]

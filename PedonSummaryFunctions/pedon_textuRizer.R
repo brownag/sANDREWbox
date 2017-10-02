@@ -1,6 +1,7 @@
 #pedon texturizer
 
-source("Texturizer\\fine_earth_fractions.R")
+source("PedonSummaryFunctions\\pedon_summary_functions.R") 
+source("PedonSummaryFunctions\\fine_earth_fractions.R")
 library(soilDB)
 pedons <- fetchNASIS()
 profileApply(pedons,FUN=checkProfileFineEarthLimits)

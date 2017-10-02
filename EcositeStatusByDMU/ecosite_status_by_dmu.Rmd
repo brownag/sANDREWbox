@@ -12,7 +12,7 @@ output: html_document
 ###
 #Enter a regex pattern to match dmudesc
 ###
-dmupattern = "404."
+dmupattern = "302.|303.|404."
 cat("DMUID Pattern: ",dmupattern)
 ##################################
 

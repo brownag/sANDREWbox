@@ -1,6 +1,5 @@
-source("pedon_summary_functions.R") 
-
 library(dplyr)
+library(plyr)
 #fine-earth fraction ranges (v0.1 07/27/17 andrew brown)
 # logic derived directly from NASIS calculation "Textural Class versus Particle Size Separates" written by Cathy Seybold (last updated 4/07/14)
 # 
@@ -31,6 +30,7 @@ checkProfileFineEarthLimits <- function(pedon, skipNA = TRUE) {
   h <- horizons(pedon) 
   h <- cbind(data.frame(pedon_id=pedon$pedon_id), h)
   rez <- apply(h, 1, FUN=checkHorizonFineEarthLimits, skipNA)
+  print(rez)
   return(all(unlist(rez)))
 }
 
@@ -56,7 +56,10 @@ checkHorizonFineEarthLimits <- function(horizon, skipNA = TRUE) {
       return(FALSE)
     }
   } else {
-    if(!skipNA) return(FALSE)
+    if(!skipNA) 
+      return(FALSE)
+    else
+      return(TRUE)
   }
 }
 
