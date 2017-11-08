@@ -1,0 +1,11 @@
+series,restr_type,restr_top,restr_bottom,pscs_class,surface_txt_class,surf_pH_lo,surf_pH_hi,surf_clay_lo,surf_clay_hi,arg_txt_class,arg_pH_lo,arg_pH_hi,pscs_clay_lo,pscs_clay_hi,pscs_frag_lo,pscs_frag_hi,notes
+Sierra,paralithic,100,200,fine-loamy,"COSL,SL,L",strongly acid,neutral,,27,"L,CL,SCL",strongly acid,slightly acid,18,40,2,15,
+Auberry,paralithic,100,150,fine-loamy,"COSL,SL",-,-,,20,"L,CL,SCL",strongly acid,slightly acid,20,30,-,35,
+Flanly,paralithic,50,100,fine-loamy,"SL,L",very strongly acid,neutral,8,20,"SL,L,SCL,VGR-SCL,CL",very strongly acid,neutral,18,35,0,35,
+Hurleton,paralithic,50,100,loamy-skeletal,"SL,GR-SL,GRV-SL",moderately acid,slightly acid,10,20,"GRV-SL,GRV-L,GRV-SCL,CBV-L,GRX-SCL,CBX-SCL",very strongly acid,slightly acid,18,35,35,100,
+Verjeles,paralithic,50,100,fine-loamy,SL,moderately acid,slightly acid,10,20,"L,CL,C",moderately acid,slightly acid,27,60,0,15,abrupt upper boundary with 15-30% clay increase at discontinuity 
+Orose,paralithic,25,50,loamy,SL,moderately acid,slightly acid,5,10,SL,moderately acid,slightly acid,10,18,0,15,
+Holland,paralithic,100,200,fine-loamy,"SL, L",strongly acid,slightly acid,,27,"SCL,CL",strongly acid,moderately acid,,40,,,
+Musick,paralithic,150,200,fine-loamy,"L,SL,COSL,FSL",moderately acid,slightly acid,,27,"SCL,CL,SC,C",any,any,30,40,,,"""generally"" averages greater than 30% clay; true low limit is 20% for pscs"
+Hotaw,paralithic,50,100,fine-loamy,"L,SL,COSL",moderately acid,slightly acid,,27,"SCL,CL",strongly acid,slightly acid,25,35,,,
+Chawanakee,paralithic,25,50,loamy,"SL,GR-SL,COSL,GR-COSL,CB-COSL,GR-LCOS,LS",strongly acid,slightly acid,,20,"SL,GR-SL,COSL,GR-COSL,CB-COSL,GR-LCOS,LS",strongly acid,slightly acid,,20,,35,"lacks argillic; same textures allowed and checked against PSCS horizons"
