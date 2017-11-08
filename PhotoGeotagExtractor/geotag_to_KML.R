@@ -36,7 +36,7 @@ placemark_postfix_start <- 53 #default numbering starts from 1. Change to the fi
 placemark_prefix <- "2016CA63060" #default: ""; string to precede the site ID number. can be used to make e.g. NASIS user site IDs. 
 
 #point_source = 'L:/NRCS/MLRAShared/CA630/FG_CA630_OFFICIAL.gdb' #path to feature class containing existing site points for labeling clusters
-point_source = 'S://NRCS//Archive_Andrew_Brown//CA792//Points'
+point_source = #'S://NRCS//Archive_Andrew_Brown//CA792//Points'
 
 #point_layer = 'ca630_dp' #what layer to use within geodatabase. supplied to rgdal::readOGR()
 point_layer = "SEKI-2017_0824-pedons"
@@ -45,9 +45,9 @@ centroid_function <- mean     #default: mean; function to use for aggregating x,
 
 script_dir <- "S:/NRCS/Archive_Andrew_Brown/Scripts/PhotoGeotagExtractor/"    #path to script directory (e.g. git repository instance)
 
-image_directory <- paste0(script_dir,"~to_sort")
+image_directory <- paste0(script_dir,"125_0928")
 
-output_path <- paste0(script_dir,"~sorted") #this is the path to KML/KMZ output and "sorted" site folders
+output_path <- paste0(script_dir,"~sorted_20170928") #this is the path to KML/KMZ output and "sorted" site folders
 
 #Implementation specific parameters
 template_file <- 'kml_template.dat'

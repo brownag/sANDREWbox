@@ -4,7 +4,7 @@ source("PedonSummaryFunctions\\pedon_summary_functions.R")
 library(soilDB)
 f <- fetchNASIS()
 foo <- diagnostic_hz(f)
-
+f <- subsetProfiles(f, "taxonname == 'Devilsnose'")
 #calc thickness
 foo$thickness <- foo$featdepb-foo$featdept
 
@@ -14,7 +14,7 @@ foo3 <- data.frame(peiid=foo2$peiid, epipedon_thickness=foo2$thickness)
 site(f) <- merge(site(f), foo3, by="peiid")
 
 #use hasDarkMineralSurface() to check whether the diagnostics table match the data in the horizon table
-has_epipedon <- do.call(rbind,profileApply(f,FUN=hasDarkMineralSurface, bounds=T, remove.na=T, simplify=F))
+has_epipedon <- do.call(rbind, profileApply(f, FUN=hasDarkMineralSurface, bounds=T, remove.na=T, simplify=F))
 
 #merge and check for matches of top and bottom depth
 has_epipedon$peiid <- rownames(has_epipedon)
@@ -25,4 +25,4 @@ foo4$bmatch <- foo4$featdepb == foo4$dslbound
 foo4$match <-  foo4$tmatch & foo4$bmatch
 
 #write output
-write.csv(foo4,file="PedonSummaryFunctions\\dark_epipedon_check.csv")
+write.csv(foo4,file="PedonSummaryFunctions\\303x-dark_epipedon_check.csv")

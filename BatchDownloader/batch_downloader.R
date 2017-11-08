@@ -2,7 +2,7 @@
 
 
 #format URL,File Title
-files=read.csv("file_urls.csv",stringsAsFactors=FALSE)
+files=read.csv("BatchDownloader/file_urls.csv",stringsAsFactors=FALSE)
 
 files=files[28,]
 files
@@ -15,7 +15,7 @@ files
 
 #uses method "internal"
 for(i in 1:length(files[,1])) {
-  download.file(url=files[i,1],destfile=paste0(files[i,2],".pdf"),mode="wb")
+  download.file(url=files[i,1],destfile=paste0(files[i,2]),mode="wb")
 }
 
 #oneliner requires "libcurl"

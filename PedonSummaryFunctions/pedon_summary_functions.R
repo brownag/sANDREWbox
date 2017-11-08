@@ -26,12 +26,12 @@ getClayIncrease = function(p) {
   phz=horizons(p)
   if(nrow(phz) > 1) {
     #print(nrow(phz))
-    foo = rep(NA,nrow(phz))
+    foo <- rep(NA,nrow(phz))
     for(h in 2:nrow(phz)) {
       if(!isOrganicHorizon(phz[h-1,]$hzname))
-        foo[h] = phz[h,]$clay - phz[h-1,]$clay
+        foo[h] <- phz[h,]$clay - phz[h-1,]$clay
       else
-        foo[h] = NA
+        foo[h] <- NA
     }
     return(foo)
   }
@@ -164,7 +164,16 @@ getArgillicBounds <- function(p) {
     if(!is.finite(bounds[1])) { #if we havent found upper bound
       if(!is.na(ci[h])) { #and we are between two mineral horizons (i.e. change in clay content is defined)
         thresh=getClayReqForArgillic(phz[h-1,]$clay) #determine the threshold
-        #add a check for truncated argillics due to erosion or mixing of upper boundary by plowing
+        #TODO : check for truncated argillics due to erosion or mixing of upper boundary by plowing
+        #        e.g. t subscript auto-starts argillic regardless of clay? that won't quite work because it will break cases where have clay films and limited clay increase relative to the eluvial
+        #           t subscript immediately under p subscript => autostart argillic, assuming that unmixed there would be a clay increase and the Ap can't be a part of argillic?
+        #           t subscript ON SURFACE HORIZON (implies erosion) => autostart argillic
+        #       These types of logic could create an element of unpredictability with these calculations by loosening logic for natural soils in an (incomplete) attempt to deal with human-modified edge cases. Technically,the upper bound of argilic is where clay increase is met. Period. But there are cases where an argillic is recognized in a soil that no longer has an eluvial horizon in the profile. I *think* most soils in a semi-natural state will have a non-argillic surface horizon, and ideally one that would "calculate" as an eluvial (even if it did not actually contribute the clay to the underlying illuvial hz) if the argillic starts immediately beneath, but human-modification and recently disturbed sites will still be problematic.
+        #       
+        #       If this is implemented as a check against the diagnostic table, there will be always opportunity to except "wierd" cases
+        #        might be best to just let fn predict argillic "wrong" or "absent" in eroded/mixed surface case and have \
+        #        soil scientist verify that diagnostic table is correct (since basic morphologic data e.g. clay content
+        #        cannot be used to delineate boundaries of diagnostic hz in the human-altered cases, requires site context)
         if(phz[h-1,]$clay+ci[h] >= thresh) {
           if(grepl(phz[h,]$hzname,pattern="t"))#TODO: check for P&V table for "evidence of illuviation" ?
             bounds[1]=phz[h,]$hzdept
@@ -173,7 +182,7 @@ getArgillicBounds <- function(p) {
     }
     
     if(is.finite(bounds[1])) { #we're iterating within the argillic, lets take the bottom depth
-      if(!grepl(phz[h,]$hzname, pattern="t")) { #if the next horizon lacks a "t" subscript
+      if(!grepl(phz[h,]$hzname, pattern="t")) { #if the next horizon lacks a "t" subscript 
         bounds[2] <- phz[h, ]$hzdept
         break;
       }
@@ -183,11 +192,11 @@ getArgillicBounds <- function(p) {
   }
   restrictdep <- estimateSoilDepth(p)
   if(is.finite(bounds[1]) & !is.finite(bounds[2]) | bounds[2] > restrictdep) 
-    bounds[2] = restrictdep
+    bounds[2] = restrictdep #catches cases e.g. Crt where argillic bdepth could go deeper than the "soil"
   return(data.frame(ubound=bounds[1],lbound=bounds[2]))
 }
 
-estimatePSCS = function(p) {
+estimatePSCS = function(p, tax_order_field="tax_order") {
   soildepth <- estimateSoilDepth(p)
   
   #Parts D (argillic starts >100cm  depth) and F (all other mineral soils)
@@ -202,8 +211,8 @@ estimatePSCS = function(p) {
   }
   
   #Key part B (Andisols)
-  if(!is.na(p$tax_order))
-    if(p$tax_order == "andisols") {
+  if(!is.na(site(p)[tax_order_field]))
+    if(site(p)[tax_order_field] == "andisols") {
       default_t = 0
       default_b = 100
     }  
@@ -217,7 +226,7 @@ estimatePSCS = function(p) {
   }
   
   #Key parts C and E (has argillic/kandic/natric WITHIN 100CM)
-  if(is.na(p$tax_order) | p$tax_order != "andisols") {
+  if(is.na(site(p)[tax_order_field]) | site(p)[tax_order_field] != "andisols") {
     argillic_bounds = getArgillicBounds(p)
     if(is.finite(argillic_bounds$ubound)) { 
       if(argillic_bounds$ubound<100) {
@@ -464,7 +473,7 @@ hasDarkMineralSurface <- function(p, bounds=FALSE, val_dry=5, val_moist=3, chr_m
 is.between <- function(x, a, b) { 
   x <- as.numeric(as.character(x)) #ensure that we will be able to evaluate, coerce to numeric
   if(all(!is.na(x),!is.na(a),!is.na(b),!is.null(a),!is.null(b),length(x)>0,length(a)==1,length(b)==1))
-    if(as.numeric(x) <= b & as.numeric(x) > a) 
+    if(as.numeric(x) <= b & as.numeric(x) >= a) 
       return(TRUE)
   return(FALSE)
 }
