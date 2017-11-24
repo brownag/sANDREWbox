@@ -170,14 +170,3 @@ for(s in 1:length(series.defs$series)) { #loop through each series concept
     # }
   }
 }
-
-fetchNASISdoubleprecisiontest <- function() {
-  if (!requireNamespace("RODBC")) 
-    stop("please install the `RODBC` package", call. = FALSE)
-  q.chorizon <- "SELECT chiid, hzname, hzdept_r, hzdepb_r, ph1to1h2o_r FROM  chorizon ch;"
-  channel <- RODBC::odbcDriverConnect(connection = "DSN=nasis_local;UID=NasisSqlRO;PWD=nasisRe@d0n1y")
-  d.chorizon <- RODBC::sqlQuery(channel, q.chorizon, stringsAsFactors = FALSE, as.is=F)
-  RODBC::odbcClose(channel)
-  #d.chorizon <- d.chorizon[!is.na(d.chorizon$chiid), ]
-  return(d.chorizon)
-}

@@ -5,7 +5,7 @@ library(plyr)
 # 
 # PURPOSE: intended for use with the ternary fine earth fractions (sand, silt, clay) commonly estimated in the field; does NOT check sand fractions needed for vfs/fs/ms/cos/vcos subclasses. If these subclasses are used, the sand fraction modifier is assumed to be supported by the data/describer's experience. The sand, silt and clay fractions are still checked against the limits as if they were sand, loamy sand and sandy loam textural classes, respectively.
 
-#texcl - vector of numeric values (NASIS codes) corresponding to a set of texture groups
+#texcl - vector of numeric values (NASIS codes) corresponding to texture groups
 # returns a range for each of sand, silt and clay corresponding to the CLASS LIMITS imposed by the set of texture groups
 getFineEarthLimitsFromTextureGroupID <- function(texcl) {
   if(!is.na(texcl)) {
@@ -26,11 +26,12 @@ getFineEarthLimitsFromTextureClassName <- function(texclname) {
 
 #function suitable for profileApply
 # skipNA (default TRUE) will not record errors for NA sand, silt, clay fractions. e.g. if only clay is populated, only clay range is checked
-checkProfileFineEarthLimits <- function(pedon, skipNA = TRUE) {
+checkProfileFineEarthLimits <- function(pedon, skipNA = TRUE, debug = FALSE) {
   h <- horizons(pedon) 
   h <- cbind(data.frame(pedon_id=pedon$pedon_id), h)
   rez <- apply(h, 1, FUN=checkHorizonFineEarthLimits, skipNA)
-  print(rez)
+  if(debug)
+    print(rez)
   return(all(unlist(rez)))
 }
 

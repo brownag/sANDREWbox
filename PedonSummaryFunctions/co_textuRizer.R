@@ -10,7 +10,7 @@ l2 <- profileApply(ncd,getComponentAWCRV)
 l3 <- profileApply(ncd,getComponentAWCHigh)
 df <- data.frame(chiid=names(l1), low=as.numeric(l1), rv=as.numeric(l2), high=as.numeric(l3))
 df$chiid <- as.numeric(t(as.data.frame(strsplit(as.character(df$chiid),split="\\."),stringsAsFactors = F))[,2])
-merge(horizons(ncd), df, by="chiid")
+#merge(horizons(ncd), df, by="chiid")
 
 foo <- profileApply(ncd, makeComponentTextureSummary, simplify=F)
 foo <- lapply(foo, FUN=function(x) {
