@@ -5,26 +5,15 @@ output:
     highlight: github
 ---
 ## Engineering Properties Report
-### MLRA 22A - Aiken loam – 9 to 15% slopes SDJR Project
 ##### Andrew Brown
-##### August 15, 2017
 
 ### Purpose
 
-During the course of the Aiken loam 9-15% slopes SDJR project, interpretation differences between DMUs were evident in both original (source) DMUs and the resulting MLRA DMUs. 
-
-Overall, it appeared that the narratives and TUDs from the three soil survey areas (CA619, CA620, CA624) supported a similar map unit concept, but the differences between the source DMUs (and in interpretations) could not be resolved without field investigation. Notably, CA619 (aggregated to "High Precipitation" MLRA map unit) had higher precipitation and some features in the TUD (i.e. paralithic contact, lack of clay texture class in lower argillic) that differed from the other survey areas. 
-
-The first portion of this report aggregates component horizon level data for rapid comparison of the inputs for interpretations. Next, the __AASHTO Group Index (25-100cm)__ is used as a proxy for the general behavior of soil properties with depth. The graphical summary illustrates the effect of calculating depth-weighted properties when horizons are (over-)generalized. 
-
-The depth-weighted engineering properties (e.g. AASHTO index) is often calculated over a constant interval (e.g. 25 - 100cm) to reflect the (non-topsoil) engineering properties for a component. Alternately, the value for the "thickest layer" or some other dominant condition type logic within a depth range is used. In addition to the AASHTO index, other interpretations use depth-weighted averaging of different horizon properties.
+The first portion of this report aggregates component horizon level data for rapid comparison of the inputs for interpretations. Next, the __AASHTO Group Index (25-100cm)__ is used as a proxy for the general behavior of soil properties with depth. The depth-weighted engineering properties (e.g. AASHTO index) is often calculated over a constant interval (e.g. 25 - 100cm) to reflect the (non-topsoil) engineering properties for a component. Alternately, the value for the "thickest layer" or some other dominant condition type logic within a depth range is used. In addition to the AASHTO index, other interpretations use depth-weighted averaging of different horizon properties.
 
 ### Methods
 
 Interpretative summaries of source DMUs and MLRA map units were generated using the [NASIS WEB PROJECT REPORTS](https://nasis.sc.egov.usda.gov/NasisReportsWebSite/limsreport.aspx?report_name=WEB-PROJECT-REPORTS). 
-
-The SDJR project `SDJR - MLRA 22A - Aiken loam, 9 to 15 percent slopes` was queried from the `2-SON` office projects for FY `2017`. 
-The _Interpretation Comparison (Manuscript Style)_ outlines interpretation differences between all components in the project (from source and MLRA DMUs).
 
 The AASHTO Group Index (low, RV and high) is calculated for each _Component Horizon_ from:
 
@@ -58,7 +47,7 @@ library(soilDB)
 library(knitr)
 
 # include CA630 (Mehrten and granitoid) components for comparison?
-use_CA630 <- F
+use_CA630 <- T
 
 f <- fetchNASIS_component_data()
 f.bak <- f
@@ -139,7 +128,7 @@ dfplot <- merge(dfplot, dfplotlabel, by="coiid")
 dfplot$hzdepm_r <- dfplot$hzdept_r+((dfplot$hzdepb_r-dfplot$hzdept_r)/2)
 ```
 
-```{r, echo=F, message=F, warning=F, fig.align="center", fig.height=10, fig.retina=1.5, fig.cap="__Figure 1.__ Graphical comparison of *AASHTO Group Index* by Component over Depth. Components are involved in 2017 2-SON SDJR Project “MLRA 22A Aiken loam, 9 to 15 percent slopes”. The vertical red line denotes the RV 25-100cm weighted-average AASHTO. The dark gray rectangle surrounding the red line depicts the low and the high weighted average AASHTO over the depth of interest (25-100cm). The black points plot the individual horizon AASHTO Group Indexes (y axis = horizon middle depth), and the light gray polygon depicts the low-high envelope around the horizon RV values."}
+```{r, echo=F, message=F, warning=F, fig.align="center", fig.height=10, fig.retina=1.5, fig.cap="__Figure 1.__ Graphical comparison of *AASHTO Group Index* by Component over Depth. The vertical red line denotes the RV 25-100cm weighted-average AASHTO. The dark gray rectangle surrounding the red line depicts the low and the high weighted average AASHTO over the depth of interest (25-100cm). The black points plot the individual horizon AASHTO Group Indexes (y axis = horizon middle depth), and the light gray polygon depicts the low-high envelope around the horizon RV values."}
 ggplot(dfplot, aes(x=hzdepm_r, y=aashind_r))+
   geom_rect(aes(ymin = aashto25to100_l, ymax=aashto25to100_h, xmin=100, xmax=25), alpha=0.3)+
   geom_hline(aes(yintercept=aashto25to100_r), colour="red", lwd=1)+
@@ -151,5 +140,3 @@ ggplot(dfplot, aes(x=hzdepm_r, y=aashind_r))+
   facet_wrap(~ paste(label), ncol=1)+
   coord_flip()+theme_bw()
 ```
-
-One would expect the propagation of discrepancy/error effect to be very pronounced for thicker (more general) component layers/horizons. Also, differences between soil individuals will be more prominent when calculated over a static depth interval (e.g. 25 to 100cm) rather than over an interval taxonomically/morphologically relevant to the source pedon (e.g. the particle size control section). 

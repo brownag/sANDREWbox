@@ -3,6 +3,6 @@
 
 library(soilDB)
 f <- fetchNASIS_component_data()
-save(f, file="S:/NRCS/Archive_Andrew_Brown/CA630/MehrtenMUs/302X/302x_components_old.Rda")
+save(f, file="S:/NRCS/Archive_Andrew_Brown/CA630/MehrtenMUs/302X/303X-404X_components_old.Rda")
 
 #load(file="S:/NRCS/Archive_Andrew_Brown/CA630/MehrtenMUs/302X/302x_components_old.Rda")

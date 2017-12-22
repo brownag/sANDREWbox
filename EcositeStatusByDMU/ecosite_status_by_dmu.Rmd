@@ -12,14 +12,13 @@ output: html_document
 ###
 #Enter a regex pattern to match dmudesc
 ###
-dmupattern = "605."
+dmupattern = "."
 cat("DMUID Pattern: ",dmupattern)
 ##################################
 
 ###TODOS
 # Currently several independent queries are run to get data from separate tables. 
 # It would be more efficient to do the JOINS in SQL rather than in R. I just wasn't sure which tables I'd need so I decided to do all joins on R side.
-
 ```
 
 ***
@@ -58,7 +57,6 @@ get_component_esd_data_from_NASIS_db2 <- function() {
     message("-> QC: multiple ecosites / component. Use `get('multiple.ecosite.per.coiid', envir=soilDB.env)` for related coiid values.")
   }
     
-  
   # close connection
   RODBC::odbcClose(channel)
   
@@ -131,7 +129,7 @@ get_component_fprod_data_from_NASIS_db <- function() {
   return(d)
 }
 
-c <-  as.data.frame(site(fetchNASIS_component_data()))
+c <-  as.data.frame(site(fetchNASIS_components()))
 
 #uses modified version of soilDB function
 e <-  as.data.frame(get_component_esd_data_from_NASIS_db2())

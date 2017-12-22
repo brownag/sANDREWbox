@@ -109,7 +109,7 @@ makeComponentTextureSummary <- function(component) {
     texgrps[idx] <- paste0(texgrps[idx],"*") #add an asterisk as RV indicator
     txtzz <- toupper(paste0(texgrps,collapse=" ")) #collapse all texture names into a single string, one per horizon
     #make a summary data frame row for this horizon
-    data.frame(depth=paste0(as.character(c(hz$hzdept_r[1], hz$hzdepb_r[1])),collapse=" to "), textures=txtzz, clay=paste0(as.character(c(hz$claytotal_l[1], hz$claytotal_r[1], hz$claytotal_h[1])), collapse="  "), frags=paste0(as.character(c(hz$fragvoltot_l[1], hz$fragvoltot_r[1], hz$fragvoltot_h[1])), collapse="  ")) 
+    data.frame(depth=paste0(as.character(c(hz$hzdept_r[1], hz$hzdepb_r[1])),collapse=" to "), textures=txtzz, clay=paste0(as.character(c(hz$claytotal_l[1], as.character(round(as.numeric(hz$claytotal_r[[1]]),1)), hz$claytotal_h[1])), collapse="  "), frags=paste0(as.character(c(hz$fragvoltot_l[1], hz$fragvoltot_r[1], hz$fragvoltot_h[1])), collapse="  ")) 
   })
   return(rez)
 }

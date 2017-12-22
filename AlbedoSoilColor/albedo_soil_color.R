@@ -1,6 +1,8 @@
 #color table, albedo prediction demo
 # uses all color observations from CA630 and pairs dry and moist colors by horizon
-# applies the universal albedo prediction equation albedo = 0.069*color_value - 0.114 to both moist and dry albedo
+#   TODO: surface horizons only
+#   TODO: filter on broken face/crushed (does anyone other than Andy and I do the crushed?)
+# applies the universal albedo prediction equation albedo = 0.069*color_value - 0.114 to both moist and dry albedo (assumes crushed and smoothed colors)
 # then, uses the correction factor to reflect a 45% reduction of albedo for moist color values, relative to dry
 # 
 # also, tries to independently predict a correction factor for dry -> moist conversion from CA630 data 
