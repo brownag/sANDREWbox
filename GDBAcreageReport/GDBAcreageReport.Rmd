@@ -1,7 +1,7 @@
 ---
 title: "GDB Acreage Report"
 author: "Andrew Brown"
-date: "January 9, 2018"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: html_document
 ---
 
@@ -45,5 +45,5 @@ legend_mu2$Spatial_Acres[is.na(legend_mu2$Spatial_Acres)] <- 0
 legend_mu2$match = (legend_mu2$Legend_Acres==legend_mu2$Spatial_Acres)
 
 kable(legend_mu2, row.names = FALSE)
-write.csv(legend_mu2, file = "GDB_Acreage_Report.csv")
+write.csv(legend_mu2, file = paste0("GDBAcreageReport_",format(Sys.time(), '%Y%m%d'),".csv"))
 ```
