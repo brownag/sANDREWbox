@@ -1,0 +1,49 @@
+---
+title: "GDB Acreage Report"
+author: "Andrew Brown"
+date: "January 9, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(rgdal)
+library(plyr)
+library(soilDB)
+library(knitr)
+knitr::opts_chunk$set(echo = FALSE)
+poly.dsn = "L:/NRCS/MLRAShared/CA630/FG_CA630_OFFICIAL.gdb"
+poly.layer = "ca630_a"
+poly.bounds = "ca630_b"
+```
+
+```{r}
+get_NASIS_legendmu <- function() {
+  # must have RODBC installed
+  if(!requireNamespace('RODBC'))
+    stop('please install the `RODBC` package', call.=FALSE)
+  q <- "SELECT muiidref, musym, mustatus, muacres FROM lmapunit;"
+  # setup connection local NASIS
+  channel <- RODBC::odbcDriverConnect(connection="DSN=nasis_local;UID=NasisSqlRO;PWD=nasisRe@d0n1y")
+  d <- RODBC::sqlQuery(channel, q, stringsAsFactors=FALSE)
+  RODBC::odbcClose(channel)
+  return(d)
+}
+
+# Get map unit data
+mu <- readOGR(dsn = poly.dsn, layer = poly.layer, stringsAsFactors=FALSE)
+df <- mu@data
+foo <- ldply(split(df, df$MUSYM, drop=TRUE), .fun=function(x) { sum(x$Acres) })
+colnames(foo) <- c("MUSYM","Spatial_Acres")
+
+legend_mu <- uncode(get_NASIS_legendmu())
+names(legend_mu) <- c("MU Rec ID", "MUSYM", "Status","Legend_Acres")
+
+legend_mu2 <- join(legend_mu, foo, by=c("MUSYM"), type="full")
+legend_mu2 <- legend_mu2[order(legend_mu2$MUSYM, decreasing = FALSE),]
+legend_mu2$Legend_Acres[is.na(legend_mu2$Legend_Acres)] <- 0
+legend_mu2$Spatial_Acres[is.na(legend_mu2$Spatial_Acres)] <- 0
+legend_mu2$match = (legend_mu2$Legend_Acres==legend_mu2$Spatial_Acres)
+
+kable(legend_mu2, row.names = FALSE)
+write.csv(legend_mu2, file = "GDB_Acreage_Report.csv")
+```
