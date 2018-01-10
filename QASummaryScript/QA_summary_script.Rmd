@@ -20,7 +20,7 @@ ____
 
 ```{r, echo=F, message=F, warning=F, results='asis'}
 #path to QA Toolbox shapefile output
-qafilepath <- "S:\\NRCS\\Archive_Andrew_Brown\\CA630\\QA\\CommonSoilLines\\20171120"
+qafilepath <- "S:/NRCS/Archive_Andrew_Brown/CA630/QA/CommonSoilLines/20180109"
 musym.column.name <- "MUSYM" #column name containing MUSYM (the variable you are stratifying on)
 status.column.name <- "Status" #column name containing status information you would like to summarize by MUSYM
 ok.pattern <- "OK" #pattern to match for records with "fixed" status

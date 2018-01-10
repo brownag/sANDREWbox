@@ -1,0 +1,46 @@
+---
+title: "Mapunit Adjacency"
+author: "Andrew Brown"
+date: "January 9, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(spdep)
+library(rgdal)
+library(igraph)
+library(sharpshootR)
+library(lattice)
+library(Cairo)
+library(plyr)
+library(knitr)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=FALSE}
+# load active survey
+x <- readOGR(dsn='L:/NRCS/MLRAShared/CA630/FG_CA630_OFFICIAL.gdb', layer='ca630_a', stringsAsFactors=FALSE)
+
+# remove NOTCOM, DA, and empty symbols and water
+x <- x[which(! x$MUSYM %in% c('NOTCOM', 'DA', ' ', '', '1000')), ]
+
+# create polygon adjacency matrix
+res <- polygonAdjacency(x, v='MUSYM')
+#isSymmetric(res$adjMat)
+
+pattern <- '901.*'
+idx.rows <- which(grepl(rownames(res$adjMat), pattern=pattern))
+
+subse <- res$adjMat[idx.rows,]
+x=subse[1,]
+foo <- adply(subse, .margins=1, .fun=function(x) { return(data.frame(paste0(names(x[order(x, decreasing = TRUE)[1:3]]),collapse=","))) })
+colnames(foo) <- c("MUSYM", "most.common.neighbors")
+foo$MUSYM <- as.character(foo$MUSYM)
+foo <- foo[order(foo$MUSYM, decreasing = FALSE),]
+kable(foo)
+
+g <- plotSoilRelationGraph(res$adjMat, spanning.tree='max', edge.scaling.factor=0.1, vertex.scaling.factor=1,vertex.scaling.method = "distance", vertex.label.family='sans', vertex.label.cex=0.5,layout=layout_with_lgl)
+tkplot(g)
+rglplot(g)
+dotplot(sort(graph.diversity(g)))
+```

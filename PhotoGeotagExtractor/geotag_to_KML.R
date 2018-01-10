@@ -1,6 +1,10 @@
 #Photo geotag to KML script
 #@author: andrew brown
-#@version: 0.2b; 1/13/17
+#@version: 0.3b; 1/10/18
+
+### code to collate all unarchived files
+# unarchived <- na.omit(filez[!(basename(as.character(list.files(path=image_directory, full.names=TRUE, recursive = TRUE))) %in% basename(as.character(list.files(path="L:/NRCS/MLRAShared/CA630/Brown_CA630_Pictures", full.names=TRUE, recursive = TRUE))))])
+# file.copy(unarchived,to = 'E:/PhotoGeotagExtractor/2017CA630_in/unarchived')
 
 ### install & load required packages, if needed
 packz <- c("sp","rgdal","stringr","pixmap","RCurl","utils","magick","dtw","proxy")
@@ -15,8 +19,8 @@ if(sum(as.numeric(loaded))!=length(packz)) {
 
 ###SETUP###
 #User-defined settings
-threshold_dist <- 25              #meters; maximum distance between points for cluster membership and naming from DP
-threshold_time <- 55               #minutes; maximum time between points for cluster membership
+threshold_dist <- 120              #meters; maximum distance between points for cluster membership and naming from DP
+threshold_time <- 45               #minutes; maximum time between points for cluster membership
 
 make_kmz <- TRUE              #requires WinZip. Creates a standalone file containing KML and images
 
@@ -30,24 +34,24 @@ name_by_nearby_point <- TRUE  #default: FALSE; creates a new site ID for each cl
 placemark_names <- NA         #default is NA; uses either numeric or nearby point names. Need to know a priori the number of clusters.
                               # alternately can specify a vector containing pre-defined site IDs. if this is non-NA, no other naming scheme will be used. 
                             
-placemark_postfix_start <- 53 #default numbering starts from 1. Change to the first site ID number used for this picture set. 
+placemark_postfix_start <- 51 #default numbering starts from 1. Change to the first site ID number used for this picture set. 
                               # Sites will be incremented based on the temporal order of the pictures.
 
-placemark_prefix <- "2016CA63060" #default: ""; string to precede the site ID number. can be used to make e.g. NASIS user site IDs. 
+placemark_prefix <- "2017CA63060" #default: ""; string to precede the site ID number. can be used to make e.g. NASIS user site IDs. 
 
-#point_source = 'L:/NRCS/MLRAShared/CA630/FG_CA630_OFFICIAL.gdb' #path to feature class containing existing site points for labeling clusters
-point_source = #'S://NRCS//Archive_Andrew_Brown//CA792//Points'
+point_source = 'L:/NRCS/MLRAShared/CA630/FG_CA630_OFFICIAL.gdb' #path to feature class containing existing site points for labeling clusters
+#point_source = 'S://NRCS//Archive_Andrew_Brown//CA792//Points'
 
-#point_layer = 'ca630_dp' #what layer to use within geodatabase. supplied to rgdal::readOGR()
-point_layer = "SEKI-2017_0824-pedons"
+point_layer = 'ca630_dp' #what layer to use within geodatabase. supplied to rgdal::readOGR()
+#point_layer = "SEKI-2017_0824-pedons"
 
 centroid_function <- mean     #default: mean; function to use for aggregating x,y,z data from multiple images in a cluster;
 
-script_dir <- "S:/NRCS/Archive_Andrew_Brown/Scripts/PhotoGeotagExtractor/"    #path to script directory (e.g. git repository instance)
+script_dir <- "E:/PhotoGeotagExtractor/"    #path to script directory (e.g. git repository instance)
 
-image_directory <- paste0(script_dir,"125_0928")
+image_directory <- paste0(script_dir,"2017CA630_in")
 
-output_path <- paste0(script_dir,"~sorted_20170928") #this is the path to KML/KMZ output and "sorted" site folders
+output_path <- paste0(script_dir,"~2017CA630_out") #this is the path to KML/KMZ output and "sorted" site folders
 
 #Implementation specific parameters
 template_file <- 'kml_template.dat'
@@ -129,7 +133,7 @@ makeKML = function(output,placemarks,folder) {
 ### MAIN APPLICATION LOGIC ###
 
 # load exif data from images in target directory  
-filez <- as.character(list.files(path=image_directory,full.names=TRUE))
+filez <- as.character(list.files(path=image_directory, full.names=TRUE, recursive = TRUE))
 filez <- filez[grepl(pattern=".*\\.JPG",x=filez,ignore.case=TRUE)] #keep only JPEG
 exiftool_callz <- paste0(exiftool_path," \"",filez,"\"")
 dat <- data.frame(path=character(), filename = character(), date = character(), 
@@ -187,8 +191,8 @@ if(length(idx.no_sp) > 0)
 
 #if any of the images are missing spatial data, use timestamp clustering based on the supplied point file 
 
-timepoints <- dp_points #readOGR(dsn = "E:\\Points", layer = "02.01.17", stringsAsFactors=FALSE) 
-dptimes <- as.numeric(as.POSIXct(strptime(timepoints$time,"%Y/%m/%d %H:%M:%S",tz = "GMT")))
+timepoints <- dp_points[grepl(dp_points$IDENT, pattern="2017CA6306.*"),] #readOGR(dsn = "E:\\Points", layer = "02.01.17", stringsAsFactors=FALSE) 
+dptimes <- as.numeric(as.POSIXct(strptime(timepoints$COMMENT,"%Y/%m/%d %H:%M:%S")))
 placemark_names_min=c()
 dp_points_tagged_min=0
 if(nrow(dat_min) > 0) {
@@ -196,22 +200,21 @@ if(nrow(dat_min) > 0) {
   hr <- hclust(distmat, method = "complete", members=NULL)
   plot(hr)
   dat_min$centroid <- cutree(hr, h=threshold_time) #threshold time represented in MINUTES
-  c_times <- as.numeric(as.POSIXlt(aggregate(dat_min$date,by=list(dat_min$centroid),FUN=mean)[,2], tz=device_olson_name)) #calculate centroid time
+  c_times <- as.numeric(as.POSIXlt(aggregate(dat_min$date,by=list(dat_min$centroid),FUN=mean)[,2])) #calculate centroid time
   dat_min$c_time=NA
   if(name_by_nearby_point) {
     for(c in 1:length(levels(factor(dat_min$centroid)))) {
       idx <- which(dat_min$centroid == c)
       dat_min$c_time[idx] = c_times[c]
       diffz=abs(as.numeric(c_times[c] - dptimes))
-      print(diffz/60)
       diffz[which(diffz > threshold_time*60)] = NA
       if(sum(is.na(diffz)) == length(diffz)) {
         print(paste0("Failed to identify a user site ID for cluster: ",c))
         placemark_names_min <- c(placemark_names_min,paste0(c))
       } else {
         bestdiff=which(diffz == min(diffz, na.rm=T))
-        placemark_names_min <- c(placemark_names_min,(timepoints[bestdiff,]$ident))
-        print(paste0("Cluster ",c," is ",floor(diffz[bestdiff]/60)," minutes from ",timepoints[bestdiff,]$ident))
+        placemark_names_min <- c(placemark_names_min,(timepoints[bestdiff,]$IDENT))
+        print(paste0("Cluster ",c," is ",floor(diffz[bestdiff]/60)," minutes from ",timepoints[bestdiff,]$IDENT))
         dp_points_tagged_min <- dp_points_tagged_min+1
       }
     }  
@@ -268,9 +271,9 @@ if(nrow(dat) > 0) {
       sdat_dp <- dat_dp[which(dat_dp$centroid == ddp),] #subset pictures from one cluster
       dpdistz <- spDistsN1(pt=coordinates(sdat_dp)[1,1:2],pts=dp_points) #calculates distances from dp points to all pictures in cluster
       dpid <- which(dpdistz==min(dpdistz))[1] #if multiple meet the threshold, take the first (closest)
-      print(paste("Cluster",ddp,"is",dpdistz[dpid],"meters from",dp_points[dpid,]$ident)) 
+      print(paste("Cluster",ddp,"is",dpdistz[dpid],"meters from",dp_points[dpid,]$IDENT)) 
       if(dpdistz[dpid] <= threshold_dist) {
-        placemark_names <- c(placemark_names,(dp_points[dpid,]$ident))
+        placemark_names <- c(placemark_names,(dp_points[dpid,]$IDENT))
         dp_points_tagged <- dp_points_tagged+1
       } else {
         placemark_names <- c(placemark_names,paste0(ddp))
