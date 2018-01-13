@@ -12,7 +12,6 @@ __Columns of tabular output are:__
 
 *  MUSYM
 *  number features per MUSYM
-*  number features as OK
 *  number features as Error
 *  number of features Unchecked
           
@@ -20,8 +19,11 @@ ____
 
 ```{r, echo=F, message=F, warning=F, results='asis'}
 #path to QA Toolbox shapefile output
-qafilepath <- "S:/NRCS/Archive_Andrew_Brown/CA630/QA/CommonSoilLines/20180109"
+#qafilepath <- "S:/NRCS/Archive_Andrew_Brown/CA630/QA/CommonSoilLines/20180110/"
+qafilepath <- "L:/NRCS/MLRAShared/CA630/FG_CA630_OFFICIAL.gdb"
 musym.column.name <- "MUSYM" #column name containing MUSYM (the variable you are stratifying on)
+polyid.column.name <- "POLYID"
+areasym.column.name <- "AREASYMBOL" #column name containing MUSYM (the variable you are stratifying on)
 status.column.name <- "Status" #column name containing status information you would like to summarize by MUSYM
 ok.pattern <- "OK" #pattern to match for records with "fixed" status
 error.pattern <- "Error" #pattern to match records that have been reviewed and determined to be an error needing further attention
@@ -30,30 +32,47 @@ error.pattern <- "Error" #pattern to match records that have been reviewed and d
 ```{r, echo=F, message=F, warning=F, results='asis'}
 library(rgdal)
 library(knitr)
-qafilepath <- chartr('\\','/',qafilepath) 
-qafilesnopath <- list.files(qafilepath)
-keep <- grepl(qafilesnopath,pattern="QA_.*shp$")
-qafilesnopath <- qafilesnopath[keep]
-qafiles <- paste0(qafilepath,"/",qafilesnopath)
-filedataframes <- lapply(qafiles,FUN=function(x) return(readOGR(dsn=x, verbose=F)@data))
+gdb.layers <- ogrListLayers(dsn=qafilepath)
+
+keep.qa <- grepl(gdb.layers,pattern="^QA_")
+gdb.layers.qa <-  gdb.layers[keep.qa]
+
+keep._a <-  grepl(gdb.layers, pattern="_a")
+spatialsrc <- gdb.layers[keep._a]
+
+filedataframes <- list()
+for(q in gdb.layers.qa) {
+  filedataframes[[q]] <- try(readOGR(dsn=qafilepath, layer=q))
+}
+
+sp_a <- readOGR(dsn=qafilepath, layer=spatialsrc)
+sp_a@data$POLYID_i <- sapply(slot(sp_a, "polygons"), function(x) slot(x, "ID")) 
 
 #Summarizes QA output by mapunit symbol
 for(f in 1:length(filedataframes)) {
   fil <- filedataframes[[f]]
   musymcol <- which(grepl(names(fil), pattern=musym.column.name, ignore.case = T))
-  if(length(musymcol) > 0) { #ONLY CREATES OUTPUT IF THERE IS A MUSYM FIELD TO STRATIFY ON!
-    cat(paste0("\n#### ", qafiles[[f]]),"\n")
-    musymcol <- musymcol[1]
-    df <- aggregate(fil[,musymcol],by=list(fil[,musymcol]),FUN=length)
-    df <- cbind(df,aggregate(fil[status.column.name],by=list(fil[,musymcol]),FUN=function(x) return(sum(as.numeric(grepl(x, pattern=ok.pattern)))))[,2])
-    df <- cbind(df,aggregate(fil[status.column.name],by=list(fil[,musymcol]),FUN=function(x) return(sum(as.numeric(grepl(x, pattern=error.pattern)))))[,2])
-    names(df) <- c("MUSYM", "Features", ok.pattern, error.pattern)
-    df <- transform(df, Unchecked = Features - OK - Error)
-    df$Unchecked <- df$Features - df[ ,ok.pattern] - df[ ,error.pattern]
-    print(kable(df))
-    write.csv(df,file=paste0(qafilepath,"\\~status_summary_",strsplit(qafilesnopath[[f]],"\\.")[[1]][1],".csv"))
-  } else {
-    print(paste0("Unable to locate MUSUM field (name: ", musum.column.name))
+  if(length(musymcol) <= 0) { #ONLY CREATES OUTPUT IF THERE IS A MUSYM FIELD TO STRATIFY ON. so, if missing, make one from joining on polyid to _a
+    polyidcol <- which(grepl(names(fil), pattern=polyid.column.name, ignore.case = T))
+    if(length(polyidcol)) { 
+      fil@data[[musym.column.name]] <- merge(fil@data, sp_a@data, by.x="POLYID", by.y="POLYID_i", all.x=T)$MUSYM
+      musymcol <- which(grepl(names(fil), pattern=musym.column.name, ignore.case = T))
+      #writeOGR(fil, dsn = qafilepath, layer=gdb.layers.qa[[f]], driver="OpenFileGDB")
+    } else {
+      print(paste0("Could not locate MUSYM or POLYID field (to infer MUSYM) for layer: ", gdb.layers.qa[[f]]))
+      next
+    }
   }
+  cat(paste0("\n#### ", gdb.layers.qa[[f]]),"\n")
+  if(length(musymcol) > 1) #for case e.g. common lines where there is a L_MUSYM & R_MUSYM, just take the first column matching pattern
+    musymcol <- musymcol[1]
+  df <- aggregate(fil@data[,musymcol],by=list(fil@data[,musymcol]),FUN=length)
+  df <- cbind(df,aggregate(fil@data[status.column.name],by=list(fil@data[,musymcol]),FUN=function(x) return(sum(as.numeric(grepl(x, pattern=ok.pattern)))))[,2])
+  df <- cbind(df,aggregate(fil@data[status.column.name],by=list(fil@data[,musymcol]),FUN=function(x) return(sum(as.numeric(grepl(x, pattern=error.pattern)))))[,2])
+  names(df) <- c("MUSYM", "Features", ok.pattern, error.pattern)
+  df <- transform(df, Unchecked = Features - OK - Error)
+  df$Unchecked <- df$Features - df[ ,ok.pattern] - df[ ,error.pattern]
+  print(kable(df))
+  write.csv(df,file=paste0(qafilepath,"\\~status_summary_",strsplit(gdb.layers.qa[[f]],"\\.")[[1]][1],".csv"))
 }
 ```
