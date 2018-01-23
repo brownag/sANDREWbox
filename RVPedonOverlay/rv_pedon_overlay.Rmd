@@ -1,0 +1,82 @@
+---
+title: "RV Pedon Overlay"
+version:  "0.1b"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+---
+#### Instructions:
+1. Load all possible component pedons into NASIS selected set
+2. Load DMUs of interest into NASIS selected set
+3. Ensure polygon data source name and layer are correct and update config as needed.
+
+#### Output:
+Table containing DMU MUSYM, component name, RV component pedon ID, RV component pedon MUSYM. Last two columns check DMU v.s. Pedon match and Borrowed Pedon Note, respectively.
+
+```{r config}
+knitr::opts_chunk$set(echo = FALSE, warnings = FALSE)
+
+poly.dsn = "L:/NRCS/MLRAShared/CA630/FG_CA630_OFFICIAL.gdb"
+poly.layer = "ca630_a"
+dmudescprefix = "CA630" #usually survey area, the portion of dmudesc that is NOT the musym from the spatial
+rv_only = TRUE #filter component pedons for rvindicator = 1; note: script does not support rv_only=FALSE
+```
+
+```{r setup, include=FALSE}
+library(rgdal)
+library(plyr)
+library(soilDB)
+library(knitr)
+
+f <- fetchNASIS() #load point data (need to have all potential copedons in selected set)
+mu <- readOGR(dsn = poly.dsn, layer = poly.layer, stringsAsFactors=FALSE) # load spatial
+
+get_NASIS_componentpedons <- function(rv_only=FALSE) {
+  if(!requireNamespace('RODBC'))
+    stop('please install the `RODBC` package', call.=FALSE)
+  q <- "SELECT copedoniid, coiidref, peiidref, rvindicator, recwlupdated, recuseriidref FROM copedon;"
+  channel <- RODBC::odbcDriverConnect(connection="DSN=nasis_local;UID=NasisSqlRO;PWD=nasisRe@d0n1y")
+  d <- RODBC::sqlQuery(channel, q, stringsAsFactors=FALSE)
+  RODBC::odbcClose(channel)
+  if(rv_only)
+    d<-d[which(d$rvindicator == 1),]
+  return(d)
+}
+
+get_NASIS_componenttext <- function() {
+  if(!requireNamespace('RODBC'))
+    stop('please install the `RODBC` package', call.=FALSE)
+  q <- "SELECT cotextiid, coiidref, recdate, recauthor, comptextkind, textcat, textsubcat, textentry, recwlupdated, recuseriidref FROM cotext;"
+  channel <- RODBC::odbcDriverConnect(connection="DSN=nasis_local;UID=NasisSqlRO;PWD=nasisRe@d0n1y")
+  d <- RODBC::sqlQuery(channel, q, stringsAsFactors=FALSE)
+  RODBC::odbcClose(channel)
+  return(d)
+}
+
+good.idx <- which(!is.na(f$x_std))
+f.bad <- f[-good.idx, ]
+f <- f[good.idx, ]
+coordinates(f) <- ~ x_std + y_std
+proj4string(f) <- '+proj=longlat +datum=WGS84'
+f.sub <- as(f,'SpatialPointsDataFrame')
+f.sub <- spTransform(f.sub, CRS(proj4string(mu)))
+f$pMUSYM <- over(f.sub, mu)$MUSYM
+
+sitexcomponent <- merge(site(f), get_NASIS_componentpedons(rv_only=T), by.x='peiid', by.y='peiidref', all=T) #join copedon to pedon table, keep only records that are copedons  
+
+componentz <- fetchNASIS_components()
+componentz <- merge(site(componentz), sitexcomponent, by.x = 'coiid', by.y='coiidref')
+cotext <- get_NASIS_componenttext()
+cotext.borrowed <- cotext[which(cotext$textcat == "rep pedon" & cotext$textsubcat == "borrowed"),]$coiid #list of coiids with rep pedon borrowed note
+```
+
+
+```{r}
+componentz$dmuid <- sub(componentz$dmudesc, pattern = dmudescprefix, replacement = "")
+unitmatch <- componentz$pMUSYM==componentz$dmuid
+componentz$has_note = F
+componentz[!unitmatch, ]$has_note <- (componentz[!unitmatch, ]$coiid %in% cotext.borrowed)
+df <- data.frame(componentz$dmuid, componentz$compname, componentz$pedon_id, componentz$pMUSYM, unitmatch, (!unitmatch & !componentz$has_note))
+df <- df[order(componentz$dmuid, componentz$compname),]
+names(df) <- c("DMU","Component Name", "PedonID", "PedonMUSYM", "Match", "Needs borrowed note?")
+kable(df, row.names = F)
+```
