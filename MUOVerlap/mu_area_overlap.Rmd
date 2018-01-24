@@ -10,8 +10,8 @@ library(rgdal)
 library(soilDB)
 library(pacman)
 
-mu <- readOGR(dsn = 'L:/CA630/FG_CA630_OFFICIAL.gdb', layer = 'ca630_a', stringsAsFactors=FALSE)
-surveybdy <- readOGR(dsn = 'L:/CA630/FG_CA630_OFFICIAL.gdb', layer = 'ca630_b', stringsAsFactors=FALSE)
+mu <- readOGR(dsn = 'L:/NRCS/MLRAShared/CA630/FG_CA630_OFFICIAL.gdb', layer = 'ca630_a', stringsAsFactors=FALSE)
+surveybdy <- readOGR(dsn = 'L:/NRCS/MLRAShared/CA630/FG_CA630_OFFICIAL.gdb', layer = 'ca630_b', stringsAsFactors=FALSE)
 mlrabdy <- readOGR(dsn = 'F:/Geodata/mlra', layer = 'mlra_z10_a_mo2', stringsAsFactors=F)
 
 surveybdy$areasymbol <- "CA630"
