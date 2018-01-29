@@ -12,4 +12,4 @@ coordinates(x) <- ~ x_std + y_std
 proj4string(x) <- '+proj=longlat +datum=NAD83'
 x.sub <- as(x, 'SpatialPointsDataFrame')
 
-writeOGR(x.sub,dsn=getwd(),layer = paste0('nasis_points_', format(Sys.time(), '%d%m%Y')),driver='ESRI Shapefile')
+writeOGR(x.sub,dsn=getwd(),layer = paste0('nasis_points_', format(Sys.time(), '%Y%m%d')), driver='ESRI Shapefile')

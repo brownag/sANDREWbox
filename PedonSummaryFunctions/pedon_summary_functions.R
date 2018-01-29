@@ -478,14 +478,32 @@ is.between <- function(x, a, b) {
   return(FALSE)
 }
 
-intersectHorizon <- function(pedon, z1, z2=NULL) {
+intersectPedonHorizon <- function(pedon, z1, z2=NULL) {
+  #alias function; default arguments work with a NASIS pedon
+  return(intersectHorizon(pedon, z1, z2)) #returns list of pedon horizon ids (phiid)
+}
+
+
+intersectLabHorizon <- function(pedon, z1, z2=NULL) {
+  #alias function; default arguments work with a NASIS pedon
+  return(intersectHorizon(pedon, z1, z2, topdepth='hzn_top', botdepth='hzn_bot', hzid='labsampnum')) #returns list of lab sample #'s
+}
+
+
+intersectComponentHorizon <- function(pedon, z1, z2=NULL) {
+  #alias function; default arguments work with a NASIS pedon
+  return(intersectHorizon(pedon, z1, z2, hzid='chiid')) #returns list of lab sample #'s
+}
+
+
+intersectHorizon <- function(pedon, z1, z2=NULL, topdepth='hzdept', botdepth='hzdepb', hzid='phiid') {
   hz <- horizons(pedon)
   if(!missing(z2)) { # if a top and bottom depth are specified, we may intersect multiple horizons
     foo <- numeric(0)
     for(h in 1:nrow(hz)) {
       hh <- hz[h,]
-      if(is.between(hh$hzdept, z1, z2) | is.between(hh$hzdepb, z1, z2)) 
-        foo <- c(foo, hh$phiid) # if one or both horizon boundaries falls between z1, z2 add pedon horizon to list
+      if(is.between(hh[, topdepth], z1, z2) | is.between(hh[, botdepth], z1, z2)) 
+        foo <- c(foo, hh[, hzid]) # if one or both horizon boundaries falls between z1, z2 add pedon horizon to list
     }
     return(foo)
   } else { # if just z1 is specified, we will return 1 horizon ID using default "within" logic (less than or equal to) for tie breaking

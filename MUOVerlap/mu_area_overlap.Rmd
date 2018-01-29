@@ -124,7 +124,7 @@ site_mu = merge(site_mu, legend_mu, by.x="lmapunitiidref", by.y="lmapunitiid")
 
 ```{r}
 #lets consolidate...
-gis_names = c("peiid", "pedon_id", "siteiid", "site_id", "obs_date", "utmzone", "utmeasting" , "utmnorthing" ,"x","y","datum","musym","areasym","mlra")
+gis_names = c("peiid", "pedon_id", "siteiid", "site_id", "obs_date", "utmzone", "utmeasting" , "utmnorthing" ,"x","y","horizdatnm","musym","areasym","mlra")
 nasis_areao_names = c("siteiid","usiteid","stateareasym","countyareasym","mlraareasym","areaoverlapsym")
 nasis_muo_names = c("siteiid","usiteid","musym")
 
@@ -166,3 +166,4 @@ muo[which(aggregate(muo$musym, by=list(muo$siteiid), FUN=length)[,2] > 1),]$usit
 
 #this spits out potential copied site records (i.e. same user site id)
 muo[which(aggregate(muo$musym, by=list(muo$usiteid), FUN=length)[,2] > 1),]$usiteid
+```
