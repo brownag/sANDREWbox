@@ -1,0 +1,128 @@
+---
+title: "Organic Matter Distribution with Depth - grouped KSSL data by diagnostic horizon / profile position"
+author: "Andrew Brown"
+date: "January 29, 2018"
+output: html_document
+---
+
+## Summary
+
+This report loads all lab data for one (or more) soil series. Currently, it is set up to merge NASIS pedon objects with their corresponding KSSL pedon. Then, using the PedonSummaryFunction library, each pedon's argillic horizon boundaries are calculated. Using the argillic horizon boundaries, lab pedon horizons are grouped. In future, with minor adjustments and generalizations, grouping in/around other diagnostics will be possible.
+
+The grouping scheme is as follows:
+1. surface horizons
+2. horizons between the surface horizon and the top of the argillic
+3. horizons from upper half of argillic
+4. horizons from lower half of argillic (note: horizons spanning across half-depth included for range of *both* halves)
+5. any horizons below argillic
+
+```{r setup, include=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE)
+library(knitr)
+library(soilDB)
+source('pedon_summary_functions.R')
+
+component.names <- c('Flanly','Verjeles', 'Sierra', 'Auberry', 'Blasingame')
+labdata <- fetchKSSL(series=component.names[1])
+for(c in component.names[2:length(component.names)]) {
+  kssl <- fetchKSSL(series = c)
+  if(!is.null(kssl))
+    labdata <- rbind(labdata, kssl)
+}
+```
+
+```{r, results='asis'}
+cat(paste0("#### Fetched lab data for specified series (",paste0(component.names, collapse=", "),"). Joining to NASIS pedons..."))
+```
+
+```{r, include=FALSE, warning=FALSE}
+n <- fetchNASIS(rmHzErrors = F, nullFragsAreZero = T)
+f <- labdata
+
+site(f) <- merge(site(f), site(n), by="pedon_id", all.x = T)
+horizons(f) <- merge(horizons(f), horizons(n)[, c("labsampnum","peiid","phiid")], by="labsampnum", all.x=T)
+
+#alias fetchKSSL type SPC to fetchNASIS type SPC
+horizons(f)$hzname <- horizons(f)$hzn_desgn
+horizons(f)$hzdept <- horizons(f)$hzn_top
+horizons(f)$hzdepb <- horizons(f)$hzn_bot
+
+horizons(f)$c_tot[is.na(horizons(f)$c_tot)] <- horizons(f)$oc[is.na(horizons(f)$c_tot)]
+horizons(f)$om_tot <- horizons(f)$c_tot*1.78
+
+current.ranges <- list('^A.*' = list(lo=1.5, rv=3, hi=5.5), '^B.*' = list(lo=0.5, rv=1, hi=1.5), '^C.*' = list(lo=0.0, rv=0.25, hi=0.5))
+```
+
+```{r, warning=FALSE}
+hz.surface <- data.frame()
+hz.above.argillic <- data.frame()
+hz.upper.argillic <- data.frame()
+hz.lower.argillic <- data.frame()
+hz.below.argillic <- data.frame()
+surface.hz.thickness <- depth.to.upper.argillic <- depth.to.lower.argillic <- depth.to.bottom.argillic <- bottom.depth <- c()
+
+for(labpedon in 1:length(site(f))) { 
+  arg.bounds <- getArgillicBounds(f[labpedon,])
+  if(is.finite(arg.bounds$ubound)) {
+    surface_horizon <- intersectLabHorizon(f[labpedon, ], getMineralSoilSurfaceDepth(f[labpedon,])+1)
+    surface_horizon.thickness <- horizons(f)[horizons(f)$labsampnum %in% surface_horizon,]$hzn_bot
+    
+    above_argillic <- intersectLabHorizon(f[labpedon, ], surface_horizon.thickness+1, arg.bounds$ubound-1)
+    
+    upper_argillic <- intersectLabHorizon(f[labpedon, ], arg.bounds$ubound+1, (arg.bounds$lbound - arg.bounds$ubound) / 2)
+    lower_argillic <- intersectLabHorizon(f[labpedon, ], ((arg.bounds$lbound - arg.bounds$ubound) / 2)+1, arg.bounds$lbound-1)
+    
+    below_argillic <- intersectLabHorizon(f[labpedon,], arg.bounds$lbound+1, 200)
+    
+    surface.hz.thickness <- c(surface.hz.thickness, surface_horizon.thickness)
+    depth.to.upper.argillic <- c(depth.to.upper.argillic, arg.bounds$ubound)
+    depth.to.lower.argillic <- c(depth.to.lower.argillic, ((arg.bounds$lbound - arg.bounds$ubound) / 2))
+    depth.to.bottom.argillic <- c(depth.to.bottom.argillic, arg.bounds$lbound)
+    if(length(below_argillic)) {
+      #often there aren't any horizons "below" the argillic either due to cutoff depth or restriction
+      bottom.depth <- c(bottom.depth, max(horizons(f)[horizons(f)$labsampnum %in% below_argillic,]$hzn_bot))
+    }
+    
+    hz.surface <- rbind(hz.surface,horizons(f[labpedon,])[horizons(f[labpedon,])$labsampnum %in% surface_horizon, ])
+    hz.above.argillic <- rbind(hz.above.argillic,horizons(f[labpedon,])[horizons(f[labpedon,])$labsampnum %in% above_argillic, ])
+    hz.upper.argillic <- rbind(hz.upper.argillic,horizons(f[labpedon,])[horizons(f[labpedon,])$labsampnum %in% upper_argillic, ])
+    hz.lower.argillic <- rbind(hz.lower.argillic,horizons(f[labpedon,])[horizons(f[labpedon,])$labsampnum %in% lower_argillic, ])
+    hz.below.argillic <- rbind(hz.below.argillic,horizons(f[labpedon,])[horizons(f[labpedon,])$labsampnum %in% below_argillic, ])
+  }
+}
+
+om.surface.horizon <- na.omit(hz.surface$om_tot)
+om.above.argillic <- na.omit(hz.above.argillic$om_tot)
+om.upper.argillic <- na.omit(hz.upper.argillic$om_tot)
+om.lower.argillic <- na.omit(hz.lower.argillic$om_tot)
+om.below.argillic <- na.omit(hz.below.argillic$om_tot)
+
+summary.depths <- rbind('surface horizon'=quantile(surface.hz.thickness, probs=c(0, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99, 1)),
+      'above argillic'=quantile(depth.to.upper.argillic, probs=c(0, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99, 1)), 
+      'upper argillic'=quantile(depth.to.lower.argillic, probs=c(0, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99, 1)), 
+      'lower argillic'=quantile(depth.to.bottom.argillic, probs=c(0, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99, 1)),
+      'bottom depth'=quantile(bottom.depth, probs=c(0, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99, 1)))
+
+summary.om <- rbind('surface horizon'=quantile(om.surface.horizon,probs=c(0, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99, 1)),
+      'above argillic'=quantile(om.above.argillic, probs=c(0, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99, 1)),
+      'upper argillic'=quantile(om.upper.argillic, probs=c(0, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99, 1)),
+      'lower argillic'=quantile(om.lower.argillic, probs=c(0, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99, 1)),
+      'below argillic'=quantile(om.below.argillic, probs=c(0, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99, 1)))
+
+plot(density(om.surface.horizon), xlim=c(0,10), ylim=c(0,1), lwd=2, xlab="OM %", main="Density plot of KSSL-measured OM % by diagnostic horizon group")
+lines(density(om.above.argillic), xlim=c(0,10), ylim=c(0,1), col="green", lwd=2)
+lines(density(om.upper.argillic), xlim=c(0,10), ylim=c(0,1), col="blue", lwd=2)
+lines(density(om.lower.argillic), xlim=c(0,10), ylim=c(0,1), col="red", lwd=2)
+lines(density(om.below.argillic), xlim=c(0,10), ylim=c(0,1), col="purple", lwd=2)
+legend(1,legend = rownames(summary.om), col=c("black","green","blue","red","purple"),lwd=rep(2,5))
+```
+
+### Quantiles of depths (cm)to bottom of diagnostic horizon groups
+```{r}
+kable(round(summary.depths[, c("0%","5%","50%","95%","100%")]))
+```
+
+### Quantiles of KSSL-measured organic matter % by diagnostic horizon group
+```{r}
+kable(round(summary.om[, c("0%","5%","50%","95%","100%")],2))
+```

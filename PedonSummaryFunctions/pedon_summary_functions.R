@@ -86,20 +86,28 @@ estimateRootingDepth = function(p) {
 #'
 #' @examples
 #' \dontrun{getMineralSoilSurfaceDepth(p)}
-getMineralSoilSurfaceDepth <-  function(p) { 
+getMineralSoilSurfaceDepth <-  function(p, hzdesgn='hzname', botdepth='hzdepb') { 
   #assumes OSM is given O designation;
   #TODO: add support for lab-sampled organic measurements
   #      keep organic horizons with andic soil properties
   phz = horizons(p)
   default_t = 0
   if(nrow(phz) > 1) { 
-    for(h in 2:nrow(phz))
-      if(!grepl(x=phz[h-1,]$hzname,"O")) {
-        default_t = phz[h-1,]$hzdept 
-        return(default_t)
+    for(h in 2:nrow(phz)) {
+      match.hz <- grepl(x=phz[h-1, hzdesgn], ".*O.*")
+      if(length(match.hz)) {
+        if(match.hz) {
+          default_t <- phz[h-1, botdepth]
+          return(default_t)
+        }
       }
+    }
   }
   return(0)
+}
+
+getLabMineralSoilSurfaceDepth <- function(p) {
+  return(getMineralSoilSurfaceDepth(p, hzdesgn='hz_desgn', botdepth="hzn_bot"))
 }
 
 #' surfaceHorizonThickness()
@@ -472,33 +480,33 @@ hasDarkMineralSurface <- function(p, bounds=FALSE, val_dry=5, val_moist=3, chr_m
 
 is.between <- function(x, a, b) { 
   x <- as.numeric(as.character(x)) #ensure that we will be able to evaluate, coerce to numeric
-  if(all(!is.na(x),!is.na(a),!is.na(b),!is.null(a),!is.null(b),length(x)>0,length(a)==1,length(b)==1))
-    if(as.numeric(x) <= b & as.numeric(x) >= a) 
-      return(TRUE)
+  if(all(!is.null(a),!is.null(b)))
+    if(all(!is.na(x),!is.na(a),!is.na(b),length(x)>0,length(a)==1,length(b)==1))
+      if(as.numeric(x) <= b & as.numeric(x) >= a) 
+        return(TRUE)
   return(FALSE)
 }
 
 intersectPedonHorizon <- function(pedon, z1, z2=NULL) {
-  #alias function; default arguments work with a NASIS pedon
+  #alias function; default arguments work with pedons (NASIS)
   return(intersectHorizon(pedon, z1, z2)) #returns list of pedon horizon ids (phiid)
 }
 
 
 intersectLabHorizon <- function(pedon, z1, z2=NULL) {
-  #alias function; default arguments work with a NASIS pedon
+  #alias function for lab pedons (KSSL)
   return(intersectHorizon(pedon, z1, z2, topdepth='hzn_top', botdepth='hzn_bot', hzid='labsampnum')) #returns list of lab sample #'s
 }
 
 
 intersectComponentHorizon <- function(pedon, z1, z2=NULL) {
-  #alias function; default arguments work with a NASIS pedon
-  return(intersectHorizon(pedon, z1, z2, hzid='chiid')) #returns list of lab sample #'s
+  #alias function for components (NASIS)
+  return(intersectHorizon(pedon, z1, z2, hzid='chiid')) #returns list of component horizon ids
 }
-
 
 intersectHorizon <- function(pedon, z1, z2=NULL, topdepth='hzdept', botdepth='hzdepb', hzid='phiid') {
   hz <- horizons(pedon)
-  if(!missing(z2)) { # if a top and bottom depth are specified, we may intersect multiple horizons
+  if(!is.null(z2)) { # if a top and bottom depth are specified, we may intersect multiple horizons
     foo <- numeric(0)
     for(h in 1:nrow(hz)) {
       hh <- hz[h,]
@@ -509,8 +517,8 @@ intersectHorizon <- function(pedon, z1, z2=NULL, topdepth='hzdept', botdepth='hz
   } else { # if just z1 is specified, we will return 1 horizon ID using default "within" logic (less than or equal to) for tie breaking
     for(h in 1:nrow(hz)) {
       hh <- hz[h,]
-      if(is.between(z1, hh$hzdept, hh$hzdepb)) 
-        return(hh$phiid)
+      if(is.between(z1, hh[,topdepth], hh[,botdepth])) 
+        return(hh[, hzid])
     }
   }
 }
