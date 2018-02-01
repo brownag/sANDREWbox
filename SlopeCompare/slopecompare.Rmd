@@ -1,0 +1,46 @@
+---
+title: "Slope Comparison (10m DEM/topo & LiDAR-derived v.s. Field Measured)"
+author: "Andrew Brown"
+date: "February 1, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(rgdal)
+library(raster)
+library(soilDB)
+library(car)
+
+knitr::opts_chunk$set(echo = TRUE)
+
+mu <- readOGR(dsn = 'L:/NRCS/MLRAShared/CA630/FG_CA630_OFFICIAL.gdb', layer = 'ca630_a', stringsAsFactors=FALSE)
+
+pedons <- fetchNASIS(rmHzErrors = F, nullFragsAreZero = T)
+pedons$taxonname = toupper(pedons$taxonname)
+
+good.idx <- which(!is.na(pedons$x_std)) #filter out sites w/o std WGS84
+x.bad <- pedons[-good.idx, ]
+pedons <- pedons[good.idx, ]
+
+coordinates(pedons) <- ~ x_std + y_std #promote to sp points
+proj4string(pedons) <- '+proj=longlat +datum=WGS84'
+
+x.sub <- as(pedons, 'SpatialPointsDataFrame')
+x.sub <- spTransform(x.sub, CRS(proj4string(mu)))
+
+site(pedons)$musym <- over(x.sub, mu)$MUSYM 
+```
+
+```{r, echo=FALSE}
+dem.derived.slope <- raster('L:\\NRCS\\MLRAShared\\Geodata\\elevation\\ca630_sllope')
+lidar5m.derived.slope <- raster('E:\\Points\\CA630_bare_slope_R51.tif')
+
+x.sub <- spTransform(x.sub, CRS(proj4string(dem.derived.slope)))
+
+site(pedons)$demslope <- extract(dem.derived.slope, coordinates(x.sub))
+site(pedons)$lidarslope <- extract(lidar5m.derived.slope, coordinates(x.sub))
+
+plot(density(na.omit(site(pedons)$demslope)),lwd=2)
+lines(density(na.omit(site(pedons)$lidarslope)), col="green", lwd=2)
+lines(density(na.omit(site(pedons)$slope_field)), col="blue", lwd=2)
+```
