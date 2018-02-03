@@ -1,0 +1,54 @@
+---
+title: "Lab Pedon Check"
+author: "Andrew Brown"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(soilDB)
+library(knitr)
+
+knitr::opts_chunk$set(echo = FALSE)
+
+#lab_pedons <- read.csv("S:/NRCS/Archive_Andrew_Brown/CA630/QC/LabPedons/ca630_lab_pedons.csv", stringsAsFactors = FALSE)
+lab_pedons <- read.csv("S:/NRCS/Archive_Andrew_Brown/CA630/QC/LabPedons/ca630_lab_pedons_fixed.csv", stringsAsFactors = FALSE)
+
+nasis_pedons <- fetchNASIS()
+```
+### Pre-cleaning
+
+A few pedons were causing problems. 
+
+#### Two SoilVeg pedons had incorrect overlap (now fixed & can be queried  PEDON/SITE by SSA ID, SSA='CA630')
+ - 67-CA-05-042x - previously assigned CA628
+ - 75-CA-55-024x - previously assigned CA731
+
+#### One had incorrect coordinates; it is not actually in CA630
+ - S1958CA039001 - Site description says MLRA 17 granitic alluvium, Madera area. NASIS point is near Tuttletown east of New Melones off HWY 49. Likely that Lat/Lng coordinates are the error, as they don't match the Township and Range description.
+
+#### Two pedon records with no horizon data, but are located in CA630
+ - S04-hwy49-719
+ - S04-hwy49-720
+
+
+## List (sorted by USERPEDONID) of taxon names - non-matching to be updated on official list
+```{r}
+# List of lab pedons from official list lacking a matching userpedonid in NASIS (these are likely overlap or other types of errors, note fetchNASIS pedon QC)
+#missing.in.nasis <- data.frame(userpedonid=lab_pedons[!(lab_pedons$userpedonid %in% nasis_pedons$pedon_id),]$userpedonid)
+# kable(missing.in.nasis)
+# 
+lab_nasis_pedons <- nasis_pedons[nasis_pedons$pedon_id %in% lab_pedons$userpedonid,]
+lab_nasis_pedons <- site(lab_nasis_pedons[order(lab_nasis_pedons$pedon_id),])
+lab_pedons <- lab_pedons[order(lab_pedons$userpedonid),]
+lab.pedon.compare <- merge(lab_pedons, lab_nasis_pedons, by.x="userpedonid", by.y="pedon_id")
+test.frame <- data.frame(pedonid=lab.pedon.compare$userpedonid, SOURCE_NAME=lab.pedon.compare$series, NASIS_NAME=lab.pedon.compare$taxonname)
+test.frame$match <- (as.character(lab.pedon.compare$series) == as.character(lab.pedon.compare$taxonname))
+kable(test.frame)
+```
+
+## List of problem pedons (should be removed from list altogether)
+```{r}
+kable(data.frame(userpedonid=lab_pedons[!(lab_pedons$userpedonid %in% lab.pedon.compare$userpedonid),]$userpedonid))
+```
+
+
