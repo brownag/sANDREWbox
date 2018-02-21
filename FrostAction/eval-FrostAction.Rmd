@@ -1,0 +1,323 @@
+---
+title: "Frost Action (PRISM Reboot)"
+author: "Andrew Brown"
+date: "February 12, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(soilDB)
+library(rgdal)
+library(sharpshootR)
+library(maps)
+library(plyr)
+library(gstat)
+library(raster)
+library(gdalUtils)
+
+knitr::opts_chunk$set(echo = TRUE)
+stations <- read.csv('S:/NRCS/Archive_Andrew_Brown/Scripts/FrostAction/CDEC_Stations.csv', stringsAsFactors = FALSE, comment.char = '', quote='"', na.strings = ' ')
+stations$Elevation <- as.numeric(stations$Elevation)*0.3048
+# filter bogus coordinates
+stations <- subset(stations, subset=Latitude <= 90)
+
+coordinates(stations) <- ~ Longitude + Latitude
+proj4string(stations) <- '+proj=longlat +datum=NAD83'
+
+# keep those statons with mean daily temp
+idx <- grep('30', stations$Sensors)
+stations <- stations[idx, ]
+
+getData <- function(i) {
+  print(i$STA)
+  x <- try(CDECquery(id=i$STA, sensor=30, interval='D', start='1900-01-01', end='2017-12-31'))
+  if(class(x) == 'try-error')
+    return(NULL)
+  else
+    return(x)
+}
+
+# only re-download data if our cached version is missing
+if(!file.exists('cached-data.Rda')) {
+  s <- split(stations, stations$STA)
+  s.data <- lapply(s, FUN=getData)
+  x <- ldply(s.data)
+  save(x, file='cached-data.Rda')
+} else {
+  load('cached-data.Rda')
+}
+
+```
+
+```{r}
+# quick map
+par(mar=c(1,1,1,1))
+map('county', 'ca')
+points(stations, col='red', pch=3, cex=0.5)
+
+###
+### (copied) sharpshootR internal functions
+###
+
+alignDOY <- function(dt, value, fill=FALSE) {
+  # 366 used to account for leap-years
+  if(length(value) > 366)
+    stop('this function expects a single year of data')
+  
+  # DOY template: extend to 366 days for leap-years
+  doy.template <- vector(mode = 'numeric', length = 366)
+  doy.template <- rep(NA, times=366)
+  
+  # get DOY from source data
+  doy <- as.integer(format(as.Date(dt), "%j"))
+  
+  # instert data into doy template via doy index
+  doy.template[doy] <- value
+  
+  # data aligned to DOY
+  return(doy.template)
+}
+
+## TODO: better accounting for 0 days of spring / fall frost
+
+# locate the last spring frost / first fall frost DOY
+# v: vector of values that has been aligned to vector of 366 values
+# frostTemp: critical temperature that defines "frost"
+# endSpringDOY: day that marks end of "spring" (typically Jan 1 -- June 30)
+# startFallDOY: day that marks start of "fall" (typically Aug 1 -- Dec 31)
+findFirstLastFrostDOY <- function(v, frostTemp=32, endSpringDOY=182, startFallDOY=213) {
+  
+  # 366 used to account for leap-years
+  if(length(v) > 366)
+    stop('this function expects a single year of data')
+  
+  # split year
+  v.spring <- v[1:endSpringDOY]
+  v.fall <- v[startFallDOY:366]
+  
+  # vector of DOY so that fall indexing is correct
+  doy <- 1:366
+  doy.spring <- doy[1:endSpringDOY]
+  doy.fall <- doy[startFallDOY:366]
+  
+  # last spring frost: the index 
+  spring.idx <- which(v.spring < frostTemp)
+  # the last julian day below freezing is the last spring frost
+  # if there are no days below critical temperature, then use first day of the year (1)
+  last.spring.frost <- ifelse(length(spring.idx) < 1, 1, max(doy.spring[spring.idx], na.rm=TRUE))
+  
+  # first fall frost
+  fall.idx <- which(v.fall < frostTemp)
+  # the first julian day below freezing is the first fall frost
+  # if there are no days below critical temperature, then use last day of the year (366)
+  first.fall.frost <- ifelse(length(fall.idx) < 1, 366, min(doy.fall[fall.idx], na.rm=TRUE))
+  
+  return(data.frame(lastSpring=last.spring.frost, firstFall=first.fall.frost))
+}
+
+# identify the frost-free period for a single year
+# d: data.frame with 'datetime' and 'value' columns
+# minDays: rule for min number of days required (ea. spring|fall) for estimation
+# \dots: further arguments passed to findFirstLastFrostDOY()
+# result is a data.frame with first/last frost DOY
+frostFreePeriod <- function(d, minDays=165, ...) {
+  # align values with DOY in the presence of missing data
+  v <- alignDOY(d$datetime, d$value)
+  
+  # sanity check: need at least 164 days of data / semi-annual period
+  n.spring <- length(which(!is.na(v[1:182])))
+  n.fall <- length(which(!is.na(v[183:366])))
+  
+  if(any(c(n.spring < minDays, n.fall < minDays)))
+    return(NULL)
+  
+  # get the last spring and first fall frost DOY
+  fl <- findFirstLastFrostDOY(v, ...)
+  
+  return(fl) 
+}
+
+#d <- split(x, x$.id)[[1]]
+DesignFreezingIndex <- function(d, frostTemp, p, ...) {
+  d.y <- ddply(d, 'year', function(i) { 
+    a.y <- alignDOY(i$datetime, i$value)
+    ffp <- frostFreePeriod(i)
+    a.y <- a.y - frostTemp #calculate offset from "frost temp" (0 deg C or 32 deg F)
+    a.y[a.y > 0] <- 0 #all positive values (greater than frost temp) set to zero
+    a.y <- -a.y #invert negative values
+    if(!is.null(ffp))
+      return(sum(a.y, na.rm=T))
+      #return(sum(a.y[-(ffp$lastSpring:ffp$firstFall)], na.rm=T)) # annual sum DURING FFP; any non-zero value corresponds to accumulated degree days below zero
+    else 
+      return(NA) #if we can't determine the frost free period, there probably isnt enough data for frost action for that year
+  })
+  n.yrs <- nrow(d.y)
+  q <- quantile(d.y$V1, probs=p, na.rm=T)[1]
+  if(sum(!is.na(d.y$V1)) < 10 | q < 10)
+    return(NA)
+  return(q)
+}
+
+# calculate the design freezing index for each station*year combination
+# 
+x.dfi <- dlply(x, '.id', .fun=DesignFreezingIndex, .progress = 'text', frostTemp=32, p = 0.9)
+x.dfi.nona <- x.dfi[!is.na(x.dfi)]
+stations <- stations[stations$STA %in% names(x.dfi.nona),]
+stations <- stations[order(stations$STA),] #reorder stations alphabetically
+stations$dfi90 <- 0
+stations$dfi90 <- ldply(stations$STA, .fun = function(s) {
+  return(data.frame(dfi90=as.numeric(x.dfi.nona[[s]])))
+})[,1]
+
+plot(sort(stations$dfi90), ylab="Design Freezing Index for CA CDEC Stations", xlab="Station")
+abline(h=250, lwd=2, col="red")
+
+# FUNCTION TO REMOVE NA's IN sp DataFrame OBJECT
+#   x           sp spatial DataFrame object
+#   margin      Remove rows (1) or columns (2) 
+# SOURCE: https://gis.stackexchange.com/questions/89512/r-dealing-with-missing-data-in-spatialpolygondataframes-for-moran-test
+sp.na.omit <- function(x, margin=1) {
+  if (!inherits(x, "SpatialPointsDataFrame") & !inherits(x, "SpatialPolygonsDataFrame")) 
+    stop("MUST BE sp SpatialPointsDataFrame OR SpatialPolygonsDataFrame CLASS OBJECT") 
+  na.index <- unique(as.data.frame(which(is.na(x@data),arr.ind=TRUE))[,margin])
+    if(margin == 1) {  
+      cat("DELETING NA ROWS: ", na.index, "\n") 
+        return( x[-na.index,]  ) 
+    }
+    if(margin == 2) {  
+      cat("DELETING NA COLUMNS: ", na.index, "\n") 
+        return( x[,-na.index]  ) 
+    }
+}
+
+
+###
+### PREPARE PREDICTORS
+###
+# use this to create a spatial grid, if not using some other spatial predictor
+# grd <- expand.grid(x = seq(from = extent(stations)[1], to = extent(stations)[2], by = 0.1), y = seq(from = extent(stations)[3], 
+#     to = extent(stations)[4], by = 0.1))  # expand points to grid
+# coordinates(grd) <- ~ x + y
+# gridded(grd) <- TRUE
+# 
+# beamradiance <- raster('L:/NRCS/MLRAShared/Geodata/project_data/beam_rad_sum_mj30_int_region2.tif') #250m RO2 beam radiance
+# names(beamradiance) <- c("beamrad")
+# stations$beamrad <- extract(beamradiance, stations)
+
+elevation <- raster('L:/NRCS/MLRAShared/Geodata/project_data/MUSum_30m_SSR2/DEM_30m_SSR2.tif') #30m RO2 DEM
+names(elevation) <- c("Elevation")
+pctrain <- raster('L:/NRCS/MLRAShared/Geodata/project_data/MUSum_PRISM/rain_fraction_mean_800m.tif')
+
+# convert station point locations to CRS of elevation DEM and extract the DEM value to replace the file value
+stations <- spTransform(stations, CRS(proj4string(elevation)))
+elevation <- crop(elevation, extent(stations))
+pctrain <- projectRaster(pctrain, elevation)
+pctrain <- crop(pctrain, extent(stations))
+stations$Elevation <- extract(elevation, stations)
+stations$pctrain <- extract(pctrain, stations)
+
+#subset the stations dataframe to include just the tabular data neeeded for model, plus spatial reference from original object
+stations.sub <- stations[,c("dfi90","Elevation","pctrain")]#sp.na.omit(stations[,c("dfi90","Elevation")])#,"beamrad")])
+
+mu <- try(readOGR(dsn='L:/NRCS/MLRAShared/CA630/Archived_OFFICIAL_DB/FG_CA630_OFFICIAL_2018_0103_AGB.gdb', 
+layer='ca630_b', stringsAsFactors = FALSE))
+
+#visual check using cubed elevation as predictor to attempt to linearize 
+plot(dfi90~Elevation,data=stations.sub)
+m <- lm(dfi90~Elevation, data=stations.sub)
+abline(m)
+abline(h=250)
+summary(m) #pretty obvious that these outliers have to be sorted out
+
+#this is a somewhat arbitrary heuristic that seems to get the outlier stations out of the analysis
+# need to see if that is a data error or there is something else influencing the obs other than elevation\
+
+stations.sub <- stations.sub[-which(stations.sub$dfi90 > 2*stations.sub$Elevation),]
+stations.sub <- sp.na.omit(stations.sub)
+
+gs1 <- gstat(formula = dfi90 ~ Elevation, data = stations.sub) 
+mu <- spTransform(mu, CRS(proj4string(elevation)))
+
+rs800 <- raster(extent(elevation), res=800, crs=CRS(proj4string(elevation)))
+predictors <-  resample(elevation, rs800)
+names(predictors) <- c("Elevation")
+
+fa_pred_F <- interpolate(predictors, gs1, xyOnly=FALSE, na.rm=T, ext=extent(stations.sub))
+fa_pred_C <- fa_pred_F*5/9 #convert to centigrade degree days
+plot(fa_pred_C)
+plot(mu, add=T)
+points(stations, cex=0.5, col="red", add=T)
+
+fa_pred_C_rs800 <- raster(extent(fa_pred_C), res=800, crs=CRS(proj4string(fa_pred_C))) 
+fa_pred_C_rs800 <-  resample(fa_pred_C, fa_pred_C_rs800) #resample to 800m resolution, to match PRISM
+
+writeRaster(fa_pred_C_rs800, filename = 'DFI90_CDEC_800m.tif', overwrite=T)
+contour_50_rs <- rasterToContour(fa_pred_C_rs800, levels=seq(0, 1100, by=50))
+writeOGR(contour_50_rs, dsn='.', layer='DFI90_CDEC_contour_800m', driver="ESRI Shapefile", overwrite=T)
+
+plot(fa_pred_C_rs800 > 250)
+plot(mu, add=T)
+
+
+observed <- stations.sub$dfi90*5/9
+predicted <- extract(fa_pred_C, stations.sub)
+predicted_prism <- extract(q90freeze_C_crop, stations.sub)
+predicted[predicted < 0] <- NA #it is possible to have both low elevation and ABR such that predicted DFI is negative; ignore these; often from areas with limited CDEC coverage
+plot(predicted ~ observed, main="Design Freezing Index (90% probability level) for CDEC stations", ylim=c(0,1500), xlim=c(0,1500),xlab="Observed (CDEC)",ylab="Predicted")
+points(observed, predicted_prism, pch=19)
+
+lm1 <- lm(predicted ~ observed)
+lm2 <- lm(predicted_prism ~ observed)
+abline(0,1, col="green",lty=3,lwd=2)
+
+abline(h=250,lwd=2,col="red")
+abline(v=250,lwd=2,col="red")
+summary(lm1) 
+
+legend(0,1400,legend = c("PRISM (CDEC Locations)", "CDEC Elevation Model", "1:1"), pch=c(1,19,-1), lty=c(0,0,3), lwd=c(1,1,2), col=c("black","black","green"))
+
+q90freeze_C <- raster('L:/NRCS/MLRAShared/Geodata/project_data/MUSum_PRISM/q90_freeze_index_800m.tif')
+q90freeze_C_r <- projectRaster(q90freeze_C, fa_pred_C)
+q90freeze_C_crop <- crop(q90freeze_C_r, extent(fa_pred_C))
+
+q90freeze_F <- raster('L:/NRCS/MLRAShared/Geodata/project_data/MUSum_PRISM/q90_freeze_index_F_800m.tif')
+q90freeze_F_r <- projectRaster(q90freeze_F, fa_pred_F)
+q90freeze_F_crop <- crop(q90freeze_F_r, extent(fa_pred_F))
+
+plot(q90freeze_C_crop>250)
+plot(mu, add=T)
+
+plot(fa_pred_C>250,add=T)
+plot(mu, add=T)
+
+plot((fa_pred_C>250)-(fa_pred_F>250))
+plot(mu, add=T)
+
+stations.sub$prism_dfi90_C <- extract(q90freeze_C_crop, stations.sub)
+stations.sub$prism_dfi90_F <- extract(q90freeze_F_crop, stations.sub)
+
+plot(stations.sub$prism_dfi90_C~observed, asp=1)
+abline(0,1)
+
+plot(stations.sub$prism_dfi90_F~stations.sub$dfi90)
+abline(0,1)
+
+plot(stations.sub$prism_dfi90_C~predicted,asp=1)
+abline(0,1)
+
+plot(q90freeze_C_crop-fa_pred_C)
+points(stations.sub, add=T)
+
+plot(lm1)
+summary(robustbase::lmrob(lm1)) #r^2 = 0.76, recognizing 2 observations are outliers
+
+foo.idx <- observed > 2*predicted
+foo.idx[is.na(foo.idx)] <- FALSE
+foo <- stations[which(foo.idx),]
+
+coefficients(gs1)
+
+#stations where observed is > 2X predicted
+kable(data.frame(station=foo$STA, name=foo$Station.Name, elevation=foo$Elevation, city=foo$Nearby.City))
+```
+

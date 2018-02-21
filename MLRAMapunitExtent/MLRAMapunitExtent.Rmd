@@ -1,0 +1,59 @@
+---
+title: "MLRA Mapunit Extent"
+author: "Andrew Brown"
+date: "February 12, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+#NASIS SETUP
+# Area/Legend/Mapunit/DMU by MLRA against National and Local to get all Legend, Mapunit and Datamapunits in MLRA
+# 
+
+library(rgdal)
+library(soilDB)
+library(knitr)
+
+dsn <- 'L:/NRCS/MLRAShared/Geodata/SSURGO_FY2018/MLRA_2_SON_FY18.gdb'
+layer <- 'MUPOLYGON'
+
+surveybdy <- readOGR(dsn = 'F:/Geodata/mlra', layer = 'mlra_z10_a_mo2', stringsAsFactors=FALSE)
+surveybdy <- surveybdy[surveybdy$MLRA2002 == '22A',]
+mu <- readOGR(dsn, layer)
+surveybdy.t <- spTransform(surveybdy, CRS(proj4string(mu)))
+
+q <- "SELECT 
+muname, mapunit.mukey, cokey, compname, comppct_r
+FROM legend
+INNER JOIN mapunit ON mapunit.lkey = legend.lkey
+INNER JOIN component on mapunit.mukey = component.mukey
+WHERE legend.areasymbol != 'US'
+AND compname LIKE '%aiken%'
+AND majcompflag = 'yes'"
+res <- SDA_query(q)
+
+idx <- which(grepl(res$muname, pattern="MLRA"))
+idx.2018 <- which(grepl(res$muname, pattern="[2|3] to 9") & !grepl(res$muname, pattern="eroded"))
+
+plot(mu[mu$MUKEY %in% res[idx,]$mukey,], col="blue")
+plot(surveybdy.t,add=T,col="green",lwd=2)
+plot(mu[mu$MUKEY %in% res$mukey,], col="red",add=T)
+plot(mu[mu$MUKEY %in% res[idx,]$mukey,], col="blue",add=T)
+plot(mu[mu$MUKEY %in% res[idx.2018,]$mukey,], col="yellow",add=T)
+
+test.set <- mu[mu$MUKEY %in% res[idx.2018,]$mukey,]
+test.set$mlra_mapunit <- NA
+test.set$mlra_mapunit[grepl(test.set$AREASYMBOL, pattern="CA654|CA628|CA624|CA719|CA760")] <- "CentralLower"
+test.set$mlra_mapunit[grepl(test.set$AREASYMBOL, pattern="CA620")] <- "Placer"
+test.set$mlra_mapunit[grepl(test.set$AREASYMBOL, pattern="CA619")] <- "NorthernMid"
+writeOGR(test.set, dsn = 'S:/NRCS/430 SOI Soil Survey/430-05 Soil Survey Area Case Files/Projects/EVAL projects/2018 Projects/Aiken loam, 2 to 9 percent slopes/MUSummary/AikenMLRAwide', layer="mlra_mapunit_tests", driver="ESRI Shapefile")
+
+kable(res)
+```
+
+```{r}
+
+```

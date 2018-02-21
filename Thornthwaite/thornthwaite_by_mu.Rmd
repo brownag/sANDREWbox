@@ -1,0 +1,98 @@
+---
+title: "LCC Helper"
+author: "Andrew Brown"
+date: "February 8, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library(plyr)
+library(soilDB)
+library(raster)
+library(rgdal)
+library(sharpshootR)
+library(rgeos)
+library(lubridate)
+#c <- fetchNASIS_components()
+
+#read source shapefile
+mu <- try(readOGR(dsn='F:/Geodata/mlra', layer='mlra_z10_a_mo2', stringsAsFactors = FALSE))
+mu <- mu[which(mu$MLRA2002 == "22A"),]
+#mu <- try(readOGR(dsn='L:/NRCS/MLRAShared/CA630/Archived_OFFICIAL_DB/FG_CA630_OFFICIAL_2018_0103_AGB.gdb', layer='ca630_b', stringsAsFactors = FALSE))
+#mu.set <- unique(mu$MUKEY)
+#mu <- try(readOGR(dsn='S:/NRCS/430 SOI Soil Survey/430-05 Soil Survey Area Case Files/Projects/EVAL projects/2018 Projects/Aiken loam, 2 to 9 percent slopes/Maps/Aiken loam, 2 to 9 percent slopes', layer='AikenLoam2to9', stringsAsFactors = FALSE))
+
+# make a list of months for later
+months <- format(as.Date(paste('2017', 1:12, '01', sep='-')), "%b")
+extent(mu)
+#ppt <- stack('L:/NRCS/MLRAShared/Geodata/climate/raster/final_monthly_ppt_800m.tif')
+
+mmat <- brick('L:/NRCS/MLRAShared/Geodata/climate/raster/final_monthly_tavg_800m.tif')
+mu <- spTransform(mu, CRS(proj4string(mmat)))
+mu$pID <- seq(from=1, to=length(mu))
+
+#truncate raster to extent of MUSYM(s) of interest
+mmat.c <- crop(mmat, extent(mu))
+mmat.c[mmat.c < 0] <- 0
+
+#calculate monthly heat index
+monthly_thornthwaite_i <- (mmat.c/5)^1.514
+annual_heat_index <- sum(monthly_thornthwaite_i)
+alpha <- (((6.75*10^-7)*(annual_heat_index^3))-((7.71*10^-5)*(annual_heat_index^2))+(1.792*10^-2*annual_heat_index)+0.49239)
+
+#calculate non-corrected potential ET, assuming 30 days/month and 12 hours of sun per day
+pet_nc <- 16 * (10 * mmat.c / annual_heat_index) ^ alpha #mm/month
+
+x = 1:365
+y = c(80:365,1:79)
+delta = 23.5 * sin((x/365)*2*pi) # sine wave approximation of solar declination using # of days from vernal equinox (day 80)
+latitude <- mean(extent(mu)[3:4]) # get extent mean latitude, in degrees
+df_daylength <- data.frame(day_from_vernal=x, day_of_year=y, declination=delta)
+
+#calcualte the day hour and day length for each day of year at the mean latitude
+h <- acos(-tan(latitude * pi / 180) * tan(df_daylength$declination * pi / 180)) / (2 * pi) * 24
+df_daylength$length_of_day <- 2*h #day length is twice the day-hour (sunrise to noon, then noon to sunset)
+
+df_daylength <- df_daylength[order(df_daylength$day_of_year, decreasing = F),] #reorder so first record is Jan 1 not March 21
+df_daylength$month <- NA
+days_per_month <- c(31,28,31,30,31,30,31,31,30,31,30,31)
+lastindex <- 0
+# add month labels 
+for(d in 1:length(days_per_month)) {
+  idx <- (lastindex+1):(lastindex+days_per_month[d])
+  df_daylength$month[idx] <- rep(months[d], length(idx))
+  lastindex <- lastindex+days_per_month[d]
+}
+# calculate mean monthly day length
+monthly_daylength <- aggregate(df_daylength$length_of_day, FUN=mean, by=list(df_daylength$month))
+names(monthly_daylength) <- c("month","day_length")
+names(pet_nc) <- months
+
+#correct PET for number of days per month and average day length per month
+pet_c <- pet_nc
+for(i in 1:length(months)) {
+  m <- months[i]
+  pet_c[[m]] <- pet_nc[[m]]*(monthly_daylength[which(monthly_daylength$month==m),2]/12)*(days_per_month[i]/30)
+}
+
+plot(pet_c) #plot corrected PET in mm/month
+cumulative_pet_c <- sum(pet_c) #calculate cumulative PET 
+months_in_ffp <- c("Apr","May","Jun","Jul","Aug","Sep","Oct")
+cumulative_pet_c_ffp <- sum(pet_c[[months_in_ffp]]) #calculate cumulative PET from only months inside frost-free period
+
+plot(cumulative_pet_c/25.4) #plot cumulative PET for whole year, inches
+plot(mu, add=T)
+
+plot(cumulative_pet_c_ffp/25.4) #plot cumulative PET for FFP, inches
+plot(mu, add=T)
+
+extracta <- extract(cumulative_pet_c, mu)
+extracta[unlist(lapply(extracta, is.null))] <- NA
+extracta2 <- lapply(extracta, FUN=mean, na.rm=T)
+extracta2[unlist(lapply(extracta2, is.nan))] <- NA
+
+#inches of ET
+mean(unlist(extracta2), na.rm=T)/25.4
+```

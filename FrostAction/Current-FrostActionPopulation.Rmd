@@ -1,0 +1,32 @@
+---
+title: "MLRA Mapunit Extent"
+author: "Andrew Brown"
+date: "February 12, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+#NASIS SETUP
+# Area/Legend/Mapunit/DMU by MLRA against National and Local to get all Legend, Mapunit and Datamapunits in MLRA
+# 
+
+library(rgdal)
+library(soilDB)
+library(knitr)
+
+dsn <- 'L:/NRCS/MLRAShared/Geodata/SSURGO_FY2018/MLRA_2_SON_FY18.gdb'
+layer <- 'MUPOLYGON'
+
+surveybdy <- readOGR(dsn = 'F:/Geodata/mlra', layer = 'mlra_z10_a_mo2', stringsAsFactors=FALSE)
+surveybdy <- surveybdy[surveybdy$MLRA2002 == '22A',]
+mu <- readOGR(dsn, layer)
+surveybdy.t <- spTransform(surveybdy, CRS(proj4string(mu)))
+
+c <- get_component_data_from_NASIS_db()
+
+?SDA_query
+#TODO: try an SDA query using all survey areas in MLRA
+```
