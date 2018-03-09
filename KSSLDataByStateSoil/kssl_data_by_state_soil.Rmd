@@ -1,0 +1,87 @@
+---
+title: "KSSL Data for State Soil A horizons"
+author: "Andrew Brown"
+date: "March 2, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(soilDB)
+library(knitr)
+```
+
+The summary that follows uses all available KSSL data for each state soil, filtered to obtain only A horizons. This is achieved using the following regex pattern on horizon designation field: `^A[^b].*`. 
+
+Summary statistics (min, median, max, number of observations, number of NA) are produced for each series*soil property combination. Each soil property is portrayed in its own table.
+
+### Macroaggregate stability under conventional tillage - Criteria
+  - % Clay
+  - % OM
+  - Suborder / SMR
+  - Fe2O3 (%)
+  - EC (dS/m)
+  - ESP (%)
+  
+```{r, echo=F, message=F}
+state.soils <- read.csv("S:\\NRCS\\Archive_Andrew_Brown\\Trainings\\Science of Interpretations\\Aggregate Stability\\statesoils.csv")
+
+summarize.soil.property <- function(x, s.state, s.series) {
+  q <- quantile(x, na.rm=T, probs = c(0,0.5,1), names = F)
+  num.na <- sum(is.na(x))
+  num.obs <- length(x) - num.na
+  return(data.frame(state=s.state, series=s.series, minimum=q[1], median=q[2], maximum=q[3], n.obs=num.obs, n.na=num.na))
+}
+
+aquic <- data.frame(state="",series="",n.aquic=0,n.total=0)[-1,]
+clay <- om <- fed <- ec <- esp <- data.frame(state="", series="", minimum=0, median=0, maximum=0, n.obs=0, n.na=0)[-1,]
+
+for(s in 1:nrow(state.soils)) {
+  x <- state.soils[s, ]
+  f <- fetchKSSL(series = x$series)
+  hz <- horizons(f)
+  hz.sub <- hz[grepl(pattern = "^A[^b].*", hz$hzn_desgn),]
+  
+  aquic <- rbind(aquic, data.frame(x$state, x$series, n.aquic=sum(grepl(pattern="[Aa]qu.*",f$taxsuborder)), n.total=nrow(site(f))))
+  clay <- rbind(clay, summarize.soil.property(hz.sub$clay, x$state, x$series))
+  fed <- rbind(fed, summarize.soil.property(hz.sub$fe_dith, x$state, x$series))
+  om <- rbind(om, summarize.soil.property(round(hz.sub$estimated_om,2), x$state, x$series))
+  ec <- rbind(ec, summarize.soil.property(hz.sub$ec_12pre, x$state, x$series))
+  esp <- rbind(esp, summarize.soil.property(round((hz.sub$ex_na/hz.sub$cec7*100),2), x$state, x$series))
+}
+```
+
+#### % Clay, by state soil
+```{r, echo=F}
+kable(clay)
+```
+
+#### % OM total, by state soil
+```{r, echo=F}
+kable(om)
+```
+
+#### Soil Moisture Regime (# in aquic suborder vs total pedons), by state soil
+```{r, echo=F}
+kable(aquic)
+```
+
+#### % Fe2O3 (dithionite-bicarbonate-citrate extractable), by state soil
+```{r, echo=F}
+kable(fed)
+```
+
+#### EC, dS/m, by state soil
+```{r, echo=F}
+kable(ec)
+```
+
+#### ESP, %, by state soil
+```{r, echo=F}
+kable(esp)
+```
+
+
+
+
+

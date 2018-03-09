@@ -32,12 +32,12 @@ library(soilDB)
 
 series.defs <- read.csv('PedonSummaryFunctions/607X_series_concepts.csv', stringsAsFactors = F)
 
-c <- fetchNASIS_component_data()
+c <- fetchNASIS_components()
 c$ph1to1h2o_r <- round(c$ph1to1h2o_r, digits = 2)
 
 for(s in 1:length(series.defs$series)) { #loop through each series concept
   sdef <- series.defs[s,]
-  c.s <- c[grepl(sdef$series,c$compname,ignore.case = T),] #create a subset with components matching series name
+  c.s <- c[grepl(sdef$series, c$compname,ignore.case = T),] #create a subset with components matching series name
   
   if(nrow(c.s)) { 
     #check that restriction is within range
@@ -45,7 +45,9 @@ for(s in 1:length(series.defs$series)) { #loop through each series concept
     soildepthz = profileApply(c.s, estimateSoilDepth, top="hzdept_r", bot="hzdepb_r", no.contact.depth=150)
     if(any(which(soildepthz > 150))) #don't check depth for components that are VD
      soildepthz <- soildepthz[-which(soildepthz > 150)]
-    restr_check <- lapply(soildepthz, FUN=is.between, sdef$restr_top, sdef$restr_bottom)
+    if(length(soildepthz)) { #if there are still components with restrictions left after removing >150cm
+      restr_check <- lapply(soildepthz, FUN=is.between, sdef$restr_top, sdef$restr_bottom)
+    } else restr_check <- c(TRUE)
     
     
     if(any(!unlist(restr_check))) { #if any have restrictions outside the range
@@ -83,7 +85,7 @@ for(s in 1:length(series.defs$series)) { #loop through each series concept
     
     #compare RV surface texture and pH with "allowed" (OSD) classes
     surf.texture <- profileApply(c.s, FUN=function(x) {
-      h <- horizons(x)[which(horizons(x)$phiid %in% intersectHorizon(x,getMineralSoilSurfaceDepth(x)+1)),]$texture
+      h <- horizons(x)[which(horizons(x)$phiid %in% intersectHorizon(x,getMineralSoilSurfaceDepth(x, hzdesgn="hzname", botdepth="hzdepb_r")+1)),]$texture
     })
     surf.texture_check <- surf.texture%in% strsplit(sdef$surface_txt_class,",")[[1]]
     if(any(!surf.texture_check)) {

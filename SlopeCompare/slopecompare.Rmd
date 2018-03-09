@@ -40,7 +40,12 @@ x.sub <- spTransform(x.sub, CRS(proj4string(dem.derived.slope)))
 site(pedons)$demslope <- extract(dem.derived.slope, coordinates(x.sub))
 site(pedons)$lidarslope <- extract(lidar5m.derived.slope, coordinates(x.sub))
 
-plot(density(na.omit(site(pedons)$demslope)),lwd=2)
-lines(density(na.omit(site(pedons)$lidarslope)), col="green", lwd=2)
-lines(density(na.omit(site(pedons)$slope_field)), col="blue", lwd=2)
+plot(density(na.omit(log10(site(pedons)$demslope))), lwd=2)
+lines(density(na.omit(log10(site(pedons)$lidarslope))), col="green", lwd=2)
+lines(density(na.omit(log10(site(pedons)$slope_field))), col="blue", lwd=2)
+
+mean(abs(m1$residuals))
+mean(abs(m2$residuals))
+mean(abs(m3$residuals))
+
 ```

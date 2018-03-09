@@ -98,10 +98,10 @@ getMineralSoilSurfaceDepth <-  function(p, hzdesgn='hzname', botdepth='hzdepb') 
       if(length(match.hz)) {
         if(match.hz) {
           default_t <- phz[h-1, botdepth]
-          return(default_t)
         }
       }
     }
+    return(default_t)
   }
   return(0)
 }

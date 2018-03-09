@@ -8,4 +8,6 @@ Orose,paralithic,25,50,loamy,SL,moderately acid,slightly acid,5,10,SL,moderately
 Holland,paralithic,100,200,fine-loamy,"SL, L",strongly acid,slightly acid,,27,"SCL,CL",strongly acid,moderately acid,,40,,,
 Musick,paralithic,150,200,fine-loamy,"L,SL,COSL,FSL",moderately acid,slightly acid,,27,"SCL,CL,SC,C",any,any,30,40,,,"""generally"" averages greater than 30% clay; true low limit is 20% for pscs"
 Hotaw,paralithic,50,100,fine-loamy,"L,SL,COSL",moderately acid,slightly acid,,27,"SCL,CL",strongly acid,slightly acid,25,35,,,
-Chawanakee,paralithic,25,50,loamy,"SL,GR-SL,COSL,GR-COSL,CB-COSL,GR-LCOS,LS",strongly acid,slightly acid,,20,"SL,GR-SL,COSL,GR-COSL,CB-COSL,GR-LCOS,LS",strongly acid,slightly acid,,20,,35,"lacks argillic; same textures allowed and checked against PSCS horizons"
+Chawanakee,paralithic,25,50,loamy,"SL,GR-SL,COSL,GR-COSL,CB-COSL,GR-LCOS,LS",strongly acid,slightly acid,,20,"SL,GR-SL,COSL,GR-COSL,CB-COSL,GR-LCOS,LS",strongly acid,slightly acid,,20,,35,lacks argillic; same textures allowed and checked against PSCS horizons
+Wukusick,paralithic,150,200,fine,L,moderately acid,slightly acid,15,22,"C,CL,SCL,L",strongly acid,slightly acid,35,60,0,10,
+Mantree,paralithic,150,200,fine-loamy,"L,SL",moderately acid,slightly acid,5,18,"L,SL,CL, SCL,PGR-L, PGR-SCL",strongly acid,moderately acid,18,35,0,10,

@@ -49,12 +49,15 @@ if(!file.exists('cached-data.Rda')) {
 
 ```
 
+### Locations of CDEC stations
 ```{r}
 # quick map
 par(mar=c(1,1,1,1))
 map('county', 'ca')
 points(stations, col='red', pch=3, cex=0.5)
+```
 
+```{r}
 ###
 ### (copied) sharpshootR internal functions
 ###
@@ -75,6 +78,16 @@ alignDOY <- function(dt, value, fill=FALSE) {
   doy.template[doy] <- value
   
   # data aligned to DOY
+  return(doy.template)
+}
+
+alignAlternateYear <- function(dt, value, start=180, fill=FALSE) {
+  if(length(value) > 366)
+    stop('this function expects a single year of data')
+  doy.template <- vector(mode = 'numeric', length = 366)
+  doy.template <- rep(NA, times=366)
+  doy <- as.integer(format(as.Date(dt), "%j"))
+  doy.template[1:366] <- value[c(start:366,1:start-1)]
   return(doy.template)
 }
 
@@ -137,7 +150,16 @@ frostFreePeriod <- function(d, minDays=165, ...) {
   return(fl) 
 }
 
-#d <- split(x, x$.id)[[1]]
+FreezingIndex <- function(d, frostTemp, p, ...) {
+  d.y <- ddply(d, 'year', function(i) { 
+    a.y <- alignAlternateYear(i$datetime, i$value)
+    a.y <- a.y - frostTemp #calculate offset from "frost temp" (0 deg C or 32 deg F)
+    return(cumsum(a.y))
+  })
+  return(d.y)
+}
+
+
 DesignFreezingIndex <- function(d, frostTemp, p, ...) {
   d.y <- ddply(d, 'year', function(i) { 
     a.y <- alignDOY(i$datetime, i$value)
@@ -157,6 +179,8 @@ DesignFreezingIndex <- function(d, frostTemp, p, ...) {
     return(NA)
   return(q)
 }
+
+test <- dlply(x, '.id', .fun=FreezingIndex, .progress = 'text', frostTemp=32, p = 0.9)
 
 # calculate the design freezing index for each station*year combination
 # 

@@ -22,7 +22,7 @@ library(knitr)
 library(soilDB)
 source('pedon_summary_functions.R')
 
-component.names <- c('Flanly','Verjeles', 'Sierra', 'Auberry', 'Blasingame')
+component.names <- c('Sierra','Auberry','Flanly')
 labdata <- fetchKSSL(series=component.names[1])
 for(c in component.names[2:length(component.names)]) {
   kssl <- fetchKSSL(series = c)
