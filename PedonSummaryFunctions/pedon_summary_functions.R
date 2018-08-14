@@ -501,7 +501,7 @@ intersectLabHorizon <- function(pedon, z1, z2=NULL) {
 
 intersectComponentHorizon <- function(pedon, z1, z2=NULL) {
   #alias function for components (NASIS)
-  return(intersectHorizon(pedon, z1, z2, hzid='chiid')) #returns list of component horizon ids
+  return(intersectHorizon(pedon, z1, z2, topdepth='hzdept_r', botdepth='hzdepb_r', hzid='chiid')) #returns list of component horizon ids
 }
 
 intersectHorizon <- function(pedon, z1, z2=NULL, topdepth='hzdept', botdepth='hzdepb', hzid='phiid') {

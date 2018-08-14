@@ -30,7 +30,7 @@ psc.limits <- list( #pretty rudimentary checking of PSC clay against nominal ran
 
 library(soilDB)
 
-series.defs <- read.csv('PedonSummaryFunctions/607X_series_concepts.csv', stringsAsFactors = F)
+series.defs <- read.csv('PedonSummaryFunctions/slate_series_concepts.csv', stringsAsFactors = F)
 
 c <- fetchNASIS_components()
 c$ph1to1h2o_r <- round(c$ph1to1h2o_r, digits = 2)
