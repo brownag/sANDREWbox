@@ -1,0 +1,113 @@
+---
+title: "CA630 Legend"
+author: "Andrew Brown"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+---
+
+```{r, echo=F, warning=F, results='asis', message=F}
+library(soilDB, quietly = T)
+library(plyr, quietly = T)
+library(knitr, quietly = T)
+
+opts_knit$set(message=FALSE, warning=FALSE, verbose=FALSE, progress=FALSE)
+
+
+ca630 <- fetchNASIS_components(rmHzErrors = F, fill=T)
+
+getDepthClass <- function(z, type="low") {
+  if(type != "low") type ="high"
+  buf <- 1:length(z)
+  for(zz in 1:length(z)) {
+    if(!is.na(z[zz])) {
+      if(type=="low") {
+        if(z[zz]+1 > 150) buf[zz] <- "VD"
+        if(z[zz]+1 <= 150) buf[zz] <- "D"
+        if(z[zz]+1 <= 100) buf[zz] <- "MD"
+        if(z[zz]+1 <= 50) buf[zz] <- "S"
+        if(z[zz]+1 <= 25) buf[zz] <- "VS"
+      } else if(type=="high") {
+        if(z[zz]-1 > 150) buf[zz] <- "VD"
+        if(z[zz]-1 <= 150) buf[zz] <- "D"
+        if(z[zz]-1 <= 100) buf[zz] <- "MD"
+        if(z[zz]-1 <= 50) buf[zz] <- "S"
+        if(z[zz]-1 <= 25) buf[zz] <- "VS"
+      }
+      if(!is.finite(z[zz])) buf[zz] <- "NA"
+    } else buf[zz] <- "NA"
+  }
+  return(buf)
+}
+
+get_restriction_NASIS_db <- function() {
+  if(!requireNamespace('RODBC'))
+    stop('please install the `RODBC` package', call.=FALSE)
+  q <- "SELECT * FROM corestrictions;"
+  channel <- RODBC::odbcDriverConnect(connection="DSN=nasis_local;UID=NasisSqlRO;PWD=nasisRe@d0n1y")
+  d <- RODBC::sqlQuery(channel, q, stringsAsFactors=FALSE)
+  RODBC::odbcClose(channel)
+  return(d)
+}
+
+ca630$modaldepthcl <- factor(getDepthClass(as.numeric(profileApply(ca630, estimateSoilDepth, p = "Cr|R|Cd|B.*m", top="hzdept_r", bottom="hzdepb_r"))))
+
+#get restriction ranges rather than just using modal/chorizon depth to contact
+ca630_restrictions    <- uncode(get_restriction_NASIS_db())
+#ca630_restrictions    <- ca630_restrictions[grepl(ca630_restrictions$reskind, pattern="bedrock"),] 
+ca630_restrictions2    <- data.frame(coiidref=ca630_restrictions$coiidref, resdept_l=ca630_restrictions$resdept_l, resdept_h=ca630_restrictions$resdept_h)
+ca630_restrictions_s  <- split(ca630_restrictions2, f = ca630_restrictions2$coiidref)
+df_restrictions <- ldply(ca630_restrictions_s, .fun=function(d)  {
+  if(length(d)) {
+      mindep <- min(d$resdept_l)
+      maxdep <- max(d$resdept_h)
+      mindepc <- getDepthClass(mindep)
+      maxdepc <- getDepthClass(maxdep, type="high")
+      if(mindepc == maxdepc) {
+        deprange <- mindepc
+      } else deprange <- paste0(c(mindepc,maxdepc),collapse = "-")
+      #if(nrow(d) & length(mindep) & length(maxdep) & length(deprange)) {
+      return(data.frame(coiid=unique(d$coiidref), dmin=mindep, dmax=maxdep, drange=deprange))
+      #}
+  }
+})
+
+legend_df <- merge(site(ca630), df_restrictions, by="coiid", all.x = T)
+legend_df$drange <- as.character(legend_df$drange)
+legend_df$drange[is.na(legend_df$drange)] <- "None"
+
+legend_attr<-legend_df[,c("coiid","compname","comppct_r","slope_l","slope_h","drainagecl","ecosite_id","taxclname","pmkind","pmorigin","landform_string","modaldepthcl", "drange")]
+
+get_legend_from_NASIS_db <- function() {
+  if(!requireNamespace('RODBC'))
+    stop('please install the `RODBC` package', call.=FALSE)
+  q <- "SELECT nationalmusym, dmuiid, coiid, musym, muname, mustatus FROM legend AS l
+          INNER JOIN lmapunit AS lmu ON lmu.liidref = l.liid
+          INNER JOIN mapunit AS mu ON mu.muiid = lmu.muiidref
+          INNER JOIN correlation AS cor ON cor.muiidref = mu.muiid
+          INNER JOIN datamapunit AS dmu ON dmu.dmuiid = cor.dmuiidref
+          INNER JOIN component AS co ON co.dmuiidref = dmu.dmuiid 
+        WHERE cor.repdmu = 1 AND lmu.mustatus != 4"
+  channel <- RODBC::odbcDriverConnect(connection="DSN=nasis_local;UID=NasisSqlRO;PWD=nasisRe@d0n1y")
+  d <- RODBC::sqlQuery(channel, q, stringsAsFactors=FALSE)
+  RODBC::odbcClose(channel)
+  return(d)
+}
+
+base_legend <- get_legend_from_NASIS_db()
+#unique(base_legend[base_legend$musym %in% c("6071","6072","6074","6075","6079","7083","7085","7085b","7086","7086a","7087","7088","7088a","7089","7089b","7156","7159","8033","8034","8160","8161","8171","8172","8173","8177"),]$nationalmusym)
+legend_ca630 <- merge(base_legend, legend_attr, by="coiid")
+legend_ca630 <- legend_ca630[order(legend_ca630$musym, legend_ca630$comppct_r, legend_ca630$compname, decreasing=c(F,T,F), method="radix"),]
+legend_ca630$mustatus <- uncode(data.frame(mustatus=legend_ca630$mustatus))$mustatus
+
+write.csv(legend_ca630, file = 'ca630_legend.csv')
+```
+
+```{r, results='asis', echo=F, warning=F}
+for(s in split(legend_ca630[,-c(1,3)], f = legend_ca630$musym)) {
+  cat("### ", unique(s$musym), " - ", unique(s$nationalmusym), " - ", unique(s$muname), "\n")
+  df <- data.frame(s[,-c(1,2,3,4,7,8,12,13,14)])
+  names(df) <- c("Component","%","Drainage","Ecosite","Taxonomy","ModalDepth","DepthRange")
+  print(kable(df, row.names = F, align='c'))
+  cat("\n***\n")
+}
+```

@@ -1,0 +1,112 @@
+---
+title: "Report 3"
+author: "Andrew Brown"
+date: "August 8, 2018"
+output: html_document
+---
+
+```{r}
+library(soilDB)
+library(rgdal)
+
+dsns <- list(
+          'CA630'='S:/NRCS/Archive_Andrew_Brown/Scripts/CA630Legend/linework/FG_CA630_OFFICIAL_GIS_2018_0731.gdb',
+          'CA077'='S:/NRCS/Archive_Andrew_Brown/Scripts/CA630Legend/linework/CA630_Join_Surveys_Final/CA077_Join_FY2018_0730_tkk.gdb',
+          'CA632'='S:/NRCS/Archive_Andrew_Brown/Scripts/CA630Legend/linework/CA630_Join_Surveys_Final/CA632_Join_FY2018_030_TKK.gdb',
+          'CA644'='S:/NRCS/Archive_Andrew_Brown/Scripts/CA630Legend/linework/CA630_Join_Surveys_Final/CA644_Join_FY2018_0730_TKK.gdb',
+          'CA648'='S:/NRCS/Archive_Andrew_Brown/Scripts/CA630Legend/linework/CA630_Join_Surveys_Final/CA648_Join_FY2018_0730_TKK.gdb',
+          'CA649'='S:/NRCS/Archive_Andrew_Brown/Scripts/CA630Legend/linework/CA630_Join_Surveys_Final/CA649_Join_FY2018_0730_TKK.gdb',
+          'CA731'='S:/NRCS/Archive_Andrew_Brown/Scripts/CA630Legend/linework/CA630_Join_Surveys_Final/CA731_Join_FY2018_0730_TKK.gdb')
+
+layerz <- list('CA630'='ca630_a','CA077'='ca077_a','CA632'='ca632_a','CA644'='ca644_a','CA648'='ca648_a','CA649'='ca649_a','CA731'='ca731_a')
+
+get_pmunasis <- function (stringsAsFactors = F) 
+{
+  if (!requireNamespace("RODBC")) 
+    stop("please install the `RODBC` package", call. = FALSE)
+  q <- paste(
+"SELECT p.projectiid, p.uprojectid, p.projectname, pmu.seqnum pmu_seqnum, a2.areasymbol, lmu.musym, lmu.lmapunitiid AS mukey, mu.nationalmusym, mutype, lmu.mustatus, muname, muacres
+             FROM project p 
+               INNER JOIN projectmapunit  pmu ON pmu.projectiidref = p.projectiid 
+               LEFT OUTER JOIN            mapunit mu ON mu.muiid = pmu.muiidref 
+               LEFT OUTER JOIN            lmapunit lmu ON lmu.muiidref = mu.muiid 
+               LEFT OUTER JOIN            legend l ON l.liid = lmu.liidref          
+               INNER JOIN                 area a ON a.areaiid = p.mlrassoareaiidref            
+               LEFT OUTER JOIN            area a2 ON a2.areaiid = l.areaiidref           
+             WHERE l.legendsuituse != 1 OR l.legendsuituse IS NULL
+             ORDER BY p.projectname, a.areasymbol, lmu.musym;
+")
+  channel <- RODBC::odbcDriverConnect(connection = getOption("soilDB.NASIS.credentials"))
+  d.project <- uncode(RODBC::sqlQuery(channel, q, stringsAsFactors = FALSE), stringsAsFactors = stringsAsFactors)
+  RODBC::odbcClose(channel)
+  return(d.project)
+}
+
+mu.col <- 'MUSYM'
+mu <- try(readOGR(dsn=dsns[[1]], layer=layerz[[1]], stringsAsFactors = FALSE))
+mu[[mu.col]] <- as.character(mu[[mu.col]])
+mu <- mu[, c("AREASYMBOL", mu.col)]
+mu.set <- sort(unique(mu[[mu.col]]))
+for(i in 2:length(dsns)) {
+  mu.adj <- try(readOGR(dsn=dsns[[i]], layer=layerz[[i]], stringsAsFactors = FALSE))
+  mu.adj[[mu.col]] <- as.character(mu.adj[[mu.col]])
+  mu <- rbind(mu, mu.adj[,c("AREASYMBOL", mu.col), drop=F])
+  if(class(mu) == 'try-error')
+    stop(paste0('Cannot read map unit polygon/feature file: "', dsns[[i]], ' / ', layerz[[i]], '"'), call. = FALSE)
+  if(!(mu.col %in% names(mu)))
+    stop(paste0('Cannot find map unit column (',mu.col,') in attribute table of: "', dsns[i], ' / ', layerz[i],'"'), call. = FALSE)
+}
+mu$pID <- seq(from=1, to=length(mu))
+mu$uprojectid <- NA 
+
+p <- get_pmunasis()
+p.sub <- p[grepl(p$uprojectid, pattern="2018-2SON-MLRA-6.*"),]
+
+#special additions to nasis data for join purposes
+#mlra mapunit used on CA630 side then pushed out along the join to natural extent for MUSYMS 301 and 451 in CA644
+ca644451 <- p.sub[which(p.sub$areasym == "CA630" & p.sub$musym ==  "451"),]
+ca644451$areasymbol = "CA644"
+
+ca644301 <- p.sub[which(p.sub$areasym == "CA630" & p.sub$musym ==  "301"),]
+ca644301$areasymbol = "CA644"
+
+p.sub <- rbind(p.sub, ca644301, ca644451)
+
+p.sub <- p.sub[order(p.sub$uprojectid, p.sub$areasym, p.sub$musym, decreasing = F),]
+p.sub$areamusym <- as.character(paste0(p.sub$areasymbol, p.sub$musym))
+
+upids <- unique(p.sub$uprojectid)
+areasym <-  split(p.sub$areasym, p.sub$uprojectid, drop = T)
+musyms <-  split(p.sub$musym, p.sub$uprojectid, drop = T)
+mukeys <-  split(p.sub$mukey, p.sub$uprojectid, drop = T)
+mu.sp.all <- mu[0,]
+for(s in 1:length(upids)) {
+  ssa.matrix <- data.frame(AREASYM=areasym[[s]], MUSYM=musyms[[s]], MUKEY=mukeys[[s]])
+  ssa.matrix$get_from_SDA <- !(ssa.matrix$AREASYM %in% names(dsns) & ssa.matrix$AREASYM %in% names(layerz))
+  mu.sp <- mu[0,]
+  for(r in split(ssa.matrix, ssa.matrix$AREASYM)) {
+    if(!r$get_from_SDA) {
+      mu.sp <- rbind(mu.sp, mu[which(mu$AREASYMBOL == r$AREASYM & mu$MUSYM == r$MUSYM), ])
+      mu.sp$uprojectid <- upids[s]
+    } else {
+      q <- paste0("select G.MupolygonWktWgs84 as geom, mapunit.mukey, muname
+      FROM mapunit CROSS APPLY SDA_Get_MupolygonWktWgs84_from_Mukey(mapunit.mukey) as G
+      WHERE mukey = ", r$MUKEY, ";")
+      res <- SDA_query(q)
+      sda <- processSDA_WKT(res)
+      sda$MUSYM <- r$MUSYM
+      sda$AREASYMBOL <- r$AREASYM
+      sda.sub <- sda[,c("AREASYMBOL", "MUSYM")]
+      sda.sub$pID <- NA
+      sda.sub$uprojectid <- upids[s]
+      sda.sub <- spTransform(sda.sub, CRS(proj4string(mu.sp)))
+      mu.sp <- rbind(mu.sp, sda.sub)
+    }
+  }
+  plot(mu.sp)
+  mu.sp.all <- rbind(mu.sp.all, mu.sp)
+  writeOGR(mu.sp, dsn = "S:/NRCS/Archive_Andrew_Brown/Scripts/CA630Legend/MLRAProjects", layer = upids[s], driver="ESRI Shapefile", overwrite=T)
+}
+writeOGR(mu.sp.all, dsn = "S:/NRCS/Archive_Andrew_Brown/Scripts/CA630Legend/MLRAProjects", layer = "AllProjects", driver="ESRI Shapefile", overwrite=T)
+```
+

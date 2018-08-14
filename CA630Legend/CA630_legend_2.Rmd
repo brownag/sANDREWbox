@@ -1,0 +1,238 @@
+---
+title: "Final Correlation"
+author: "Andrew Brown"
+date: "July 9, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(soilDB)
+library(plyr)
+source("PedonSummaryFunctions/pedon_summary_functions.R")
+
+c <- fetchNASIS_components() 
+
+getDepthClass <- function(z, type="low") {
+  if(type != "low") type ="high"
+  buf <- 1:length(z)
+  for(zz in 1:length(z)) {
+    if(!is.na(z[zz])) {
+      if(type=="low") {
+        if(z[zz]+1 > 150) buf[zz] <- "VD"
+        if(z[zz]+1 <= 150) buf[zz] <- "D"
+        if(z[zz]+1 <= 100) buf[zz] <- "MD"
+        if(z[zz]+1 <= 50) buf[zz] <- "S"
+        if(z[zz]+1 <= 25) buf[zz] <- "VS"
+      } else if(type=="high") {
+        if(z[zz]-1 > 150) buf[zz] <- "VD"
+        if(z[zz]-1 <= 150) buf[zz] <- "D"
+        if(z[zz]-1 <= 100) buf[zz] <- "MD"
+        if(z[zz]-1 <= 50) buf[zz] <- "S"
+        if(z[zz]-1 <= 25) buf[zz] <- "VS"
+      }
+      if(!is.finite(z[zz])) buf[zz] <- "NA"
+    } else buf[zz] <- "NA"
+  }
+  return(buf)
+}
+
+get_legend_from_NASIS_db <- function() {
+  if(!requireNamespace('RODBC'))
+    stop('please install the `RODBC` package', call.=FALSE)
+  q <- "SELECT nationalmusym, dmuiid, coiid, musym, muname, mustatus FROM legend AS l
+          INNER JOIN lmapunit AS lmu ON lmu.liidref = l.liid
+          INNER JOIN mapunit AS mu ON mu.muiid = lmu.muiidref
+          INNER JOIN correlation AS cor ON cor.muiidref = mu.muiid
+          INNER JOIN datamapunit AS dmu ON dmu.dmuiid = cor.dmuiidref
+          INNER JOIN component AS co ON co.dmuiidref = dmu.dmuiid 
+        WHERE cor.repdmu = 1 AND lmu.mustatus != 4"
+  channel <- RODBC::odbcDriverConnect(connection="DSN=nasis_local;UID=NasisSqlRO;PWD=nasisRe@d0n1y")
+  d <- RODBC::sqlQuery(channel, q, stringsAsFactors=FALSE)
+  RODBC::odbcClose(channel)
+  return(d)
+}
+
+get_restriction_NASIS_db <- function() {
+  if(!requireNamespace('RODBC'))
+    stop('please install the `RODBC` package', call.=FALSE)
+  q <- "SELECT * FROM corestrictions;"
+  channel <- RODBC::odbcDriverConnect(connection="DSN=nasis_local;UID=NasisSqlRO;PWD=nasisRe@d0n1y")
+  d <- RODBC::sqlQuery(channel, q, stringsAsFactors=FALSE)
+  RODBC::odbcClose(channel)
+  return(d)
+}
+
+get_component_cogeomorph_data_from_NASIS_db_2 <- function (SS = TRUE) 
+{
+  if (!requireNamespace("RODBC")) 
+    stop("please install the `RODBC` package", call. = FALSE)
+  q <- "SELECT cogeo.coiidref as coiid, cogeo.geomfmod, geomorfeat.geomfname, cogeo.geomfeatid, cogeo.existsonfeat, cogeo.geomfiidref, cogeo.cogeomdiid, lower(geomorfeattype.geomftname) as geomftname\n  \n  FROM \n  component_View_1 AS co\n  INNER JOIN cogeomordesc_View_1 AS cogeo ON co.coiid = cogeo.coiidref\n  INNER JOIN geomorfeat ON geomorfeat.geomfiid = cogeo.geomfiidref  \n  INNER JOIN geomorfeattype ON geomorfeattype.geomftiid = geomorfeat.geomftiidref \n\n  ORDER BY coiid, geomfeatid ASC;"
+  channel <- RODBC::odbcDriverConnect(connection = getOption("soilDB.NASIS.credentials"))
+  if (SS == FALSE) {
+    q <- gsub(pattern = "_View_1", replacement = "", x = q, 
+      fixed = TRUE)
+  }
+  d <- RODBC::sqlQuery(channel, q, stringsAsFactors = FALSE)
+  RODBC::odbcClose(channel)
+  return(d)
+}
+
+
+get_cosurfmorphhpp_NASIS_db <- function() {
+  if(!requireNamespace('RODBC'))
+    stop('please install the `RODBC` package', call.=FALSE)
+  q <- "SELECT * FROM cosurfmorphhpp;"
+  channel <- RODBC::odbcDriverConnect(connection="DSN=nasis_local;UID=NasisSqlRO;PWD=nasisRe@d0n1y")
+  d <- RODBC::sqlQuery(channel, q, stringsAsFactors=FALSE)
+  RODBC::odbcClose(channel)
+  return(d)
+}
+
+get_copmgroup_NASIS_db <- function() {
+  if(!requireNamespace('RODBC'))
+    stop('please install the `RODBC` package', call.=FALSE)
+  q <- "SELECT * FROM copmgrp;"
+  channel <- RODBC::odbcDriverConnect(connection="DSN=nasis_local;UID=NasisSqlRO;PWD=nasisRe@d0n1y")
+  d <- RODBC::sqlQuery(channel, q, stringsAsFactors=FALSE)
+  RODBC::odbcClose(channel)
+  return(d)
+}
+
+c$modaldepthcl <- factor(getDepthClass(as.numeric(profileApply(c, estimateSoilDepth, p = "Cr|R|Cd|B.*m", top="hzdept_r", bottom="hzdepb_r"))))
+
+ca630_restrictions    <-  uncode(get_restriction_NASIS_db())
+
+ca630_landforms <- uncode(get_component_cogeomorph_data_from_NASIS_db_2())
+ca630_2d_hillslope <- uncode(get_cosurfmorphhpp_NASIS_db())
+ca630_2d_hillslope_flat <- ldply(split(ca630_2d_hillslope, f=ca630_2d_hillslope$cogeomdiidref), .fun = function(x) {
+  x$hillslopeprof <- as.character(x$hillslopeprof)
+  x$hsposmod <- paste0(x$hillslopeprof, "s")
+  x$hsposmod[x$rvindicator == 1] <- paste0(x$hsposmod[x$rvindicator == 1], "*")
+  return(data.frame(cogeomdiidref=x$cogeomdiidref[1], hpp = paste0(x$hsposmod, collapse=" and ")))
+})
+ca630_landforms <-  merge(ca630_landforms, ca630_2d_hillslope_flat, by.x = "cogeomdiid", by.y="cogeomdiidref", all.x=T)
+
+geomorph_maker <- function(foo) {
+  feature_type <- list("anthropogenic feature"=1, "microfeature"=2, "landform"=3, "landscape"=4) #smallest to biggest
+  foo$geomfeatorder <- factor(as.numeric(feature_type[foo$geomftname]))
+  buf <- ""
+  hspos <- foo$hpp[!is.na(foo$hpp)]
+  if(length(hspos))
+    buf <- paste0(hspos, " of ")
+  for(f in sort(levels(foo$geomfeatorder))) {
+    f.sub <- foo[which(foo$geomfeatorder == f),]
+    if(!endsWith(f.sub$geomfname, "s"))
+       f.sub$geomfname <- paste0(f.sub$geomfname, "s")
+    if(f <= 3) {
+      if(!endsWith(buf, " of ") & buf != "")
+         buf <- paste0(buf, " on ")
+    }
+    if(f == 4 & buf != "") 
+      buf <- paste0(buf, " in ")
+    if(nrow(f.sub) > 1) {
+      if(all(!is.na(f.sub$existsonfeat))) {
+        buf <- paste0(buf, paste0(f.sub$geomfname, collapse=" / "))#nested landforms at this feature order
+      } else buf <- paste0(buf, paste0(f.sub$geomfname, collapse=" and "))#multiple landforms ...
+    } else buf <- paste0(buf, f.sub$geomfname) #one landform .. 
+  }
+  return(data.frame(coiid=foo$coiid[1], geomorph_string=buf))
+}
+df_landforms <- ldply(split(ca630_landforms, f=ca630_landforms$coiid), .fun = geomorph_maker)
+
+ca630_comonth <- get_comonth_from_NASIS_db()
+
+c$modaldepthcl <- factor(getDepthClass(as.numeric(profileApply(c, estimateSoilDepth, p = "Cr|R|Cd|B.*m", top="hzdept_r", bottom="hzdepb_r"))))
+
+df_restrictions <- ldply(split(ca630_restrictions, f = ca630_restrictions$coiidref), .fun = function(x) {
+      x <- x[order(x$resdept_r),]
+      n.restr <- length(x[,4])
+      buf_ksatrange <- 1:n.restr
+      for(j in 1:n.restr) {
+        j.i <- intersectComponentHorizon(pedon = c[which(site(c)$coiid == x$coiidref[j]),], x[j,4]+1)
+        rest_hz <- horizons(c)[horizons(c)$chiid == j.i,]
+        ksatz <- paste(signif(rest_hz$ksat_l, 3), signif(rest_hz$ksat_r,3), signif(rest_hz$ksat_h,3), sep=" ~ ")
+        if(length(ksatz))
+          buf_ksatrange[j] <- ksatz
+        else
+          buf_ksatrange[j] <- NA
+      }
+      ksat <- paste0(buf_ksatrange, collapse="|")
+      return(data.frame(coiidref=x[1,1], seqnum=x[1,2], 
+resdept_l=paste0(as.character(x[,3]), collapse="|"), resdept_r=paste0(x[,4], collapse="|"), resdept_h=paste0(x[,5], collapse="|"), resdepb_l=paste0(x[,6], collapse="|"), resdepb_r=paste0(x[,7], collapse="|"), resdepb_h=paste0(x[,8], collapse="|"), resthk_l=paste0(x[,9], collapse="|"),  resthk_r=paste0(x[,10], collapse="|"), resthk_h=paste0(x[,11], collapse="|"), reskind=paste0(gsub(x[,12], pattern="bedrock, ", replacement=""), collapse="|"),  reshard=paste0(x[,13], collapse="|"), ksat=ksat))
+  }
+)
+
+df_comonth <- ldply(split(ca630_comonth, f = ca630_comonth$coiid), .fun = function(x) {
+  lastspring_flood = NA
+  firstfall_flood = NA
+  flood_freq = "none"
+  lastspring_pond = NA
+  firstfall_pond = NA
+  pond_freq = "none"
+  pond_depth = NA
+  if(nrow(x) == 12 & !all(is.na(x$flodfreqcl)) & !all(is.na(x$pondfreqcl))) {
+    noflood <- nopond <- FALSE
+    if(all(as.character(x$flodfreqcl) == "none")) {
+      lastspring_flood <- NA
+      firstfall_flood <- NA
+      flood_freq <- "none"
+      noflood <- TRUE
+    }
+    if(all(as.character(x$pondfreqcl) == "none")) {
+      lastspring_pond <- NA
+      firstfall_pond <- NA
+      pond_freq <- pond_depth <- "none"
+      nopond <- TRUE
+    }
+    if(noflood & nopond) {
+      return(data.frame(lastspring_flood = lastspring_flood, firstfall_flood=firstfall_flood, flood_freq= flood_freq, lastspring_pond = lastspring_pond, firstfall_pond = firstfall_pond, pond_freq = pond_freq, pond_depth = pond_depth))
+    }
+    if(!noflood) {
+      x_flood <- x[rev(1:6), ] #reverse, then take the first non-NA to get last spring flood
+      ff <- (x_flood[!is.na(x_flood$flodfreqcl),])[1,]
+      lastspring_flood <- ff$month
+      flood_freq <- ff$flodfreqcl
+      x_flood_rev <- x[6:12, ]
+      firstfall_flood <- x_flood_rev[which(!is.na(x_flood_rev$flodfreqcl))[1],]$month
+      if(flood_freq == "none") {
+        lastspring_flood <- firstfall_flood <- NA
+      }
+    }
+    if(!nopond) {
+      x_pond <- x[rev(1:6), ] #reverse, then take the first non-NA to get last spring flood
+      ff <- (x_pond[!is.na(x_pond$pondfreqcl),])[1,]
+      lastspring_pond <- ff$month
+      pond_depth <- max(x_pond[!is.na(x_pond$pondfreqcl),]$ponddep_h) #take maximum high ponding depth
+      pond_freq <- ff$pondfreqcl
+      x_pond_rev <- x[6:12, ]
+      firstfall_pond <- x_pond_rev[which(!is.na(x_pond_rev$pondfreqcl))[1],]$month
+      if(pond_freq == "none") {
+        lastspring_pond <- firstfall_pond <- NA
+      }
+    }
+    return(data.frame(lastspring_flood = lastspring_flood, firstfall_flood=firstfall_flood, flood_freq= flood_freq, lastspring_pond = lastspring_pond, firstfall_pond = firstfall_pond, pond_freq = pond_freq, pond_depth = pond_depth))
+  }
+})
+
+df_copmgrp <- get_copmgroup_NASIS_db()
+
+legend_df <- merge(site(c), df_restrictions, by.x="coiid", by.y="coiidref", all.x = T)
+legend_df <- merge(legend_df, df_landforms[,-1], by="coiid", all.x=T)
+legend_df <- merge(legend_df, df_comonth, by.x="coiid", by.y=".id", all.x=T)
+legend_df <- merge(legend_df, df_copmgrp[,c("coiidref","pmgroupname")], by.x="coiid", by.y="coiidref", all.x=T)
+#legend_df$drange <- as.character(legend_df$drange)
+#legend_df$drange[is.na(legend_df$drange)] <- "None"
+
+legend_attr<-legend_df[,c("coiid","compname","compkind","comppct_r","slope_l","slope_h","drainagecl","ecosite_id","taxclname","pmkind","pmorigin","landform_string","modaldepthcl", "resdept_r", "reskind" ,"reshard", "ksat", "lastspring_flood", "firstfall_flood", "flood_freq", "lastspring_pond", "firstfall_pond",  "pond_freq", "pond_depth","geomorph_string","pmgroupname")]
+
+base_legend <- get_legend_from_NASIS_db()
+legend_ca630 <- merge(base_legend, legend_attr, by="coiid")
+legend_ca630 <- legend_ca630[order(legend_ca630$musym, legend_ca630$comppct_r, legend_ca630$compname, decreasing=c(F,T,F), method="radix"),]
+legend_ca630$mustatus <- uncode(data.frame(mustatus=legend_ca630$mustatus))$mustatus
+
+```
+
+
+```{r}
+write.csv(legend_ca630,'legend_ca630.csv')
+```
