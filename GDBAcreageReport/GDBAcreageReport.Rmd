@@ -11,9 +11,17 @@ library(plyr)
 library(soilDB)
 library(knitr)
 knitr::opts_chunk$set(echo = FALSE)
-poly.dsn = "L:/NRCS/MLRAShared/CA630/FG_CA630_OFFICIAL.gdb"
-poly.layer = "ca630_a"
-poly.bounds = "ca630_b"
+#poly.dsn = "L:/NRCS/MLRAShared/CA630/Archived_OFFICIAL_DB/final/FG_CA630_GIS_2018.gdb"
+#poly.dsn = "L:/NRCS/MLRAShared/CA077/final/CA077_Join_FY2018_0817_TKK.gdb"
+#poly.dsn = "L:/NRCS/MLRAShared/CA632/final/CA632_Join_FY2018_0817_TKK.gdb"
+#poly.dsn = "L:/NRCS/MLRAShared/CA644/For Russ/CA644_Join_FY2018_0814_TKK.gdb"
+#poly.dsn = "L:/NRCS/MLRAShared/CA648/final/CA648_Join_FY2018_0730_TKK.gdb"
+#poly.dsn = "L:/NRCS/MLRAShared/CA649/final/CA649_Join_FY2018_0814_TKK.gdb"
+#poly.dsn = "L:/NRCS/MLRAShared/CA731/final/CA731_Join_FY2018_0821_TKK.gdb"
+#
+#layerz <- list('CA630'='ca630_a','CA077'='ca077_a','CA632'='ca632_a','CA644'='ca644_a','CA648'='ca648_a','CA649'='ca649_a','CA731'='ca731_a')
+poly.layer = "ca731_a"
+poly.bounds = "ca731_b"
 ```
 
 ```{r}
@@ -21,7 +29,7 @@ get_NASIS_legendmu <- function() {
   # must have RODBC installed
   if(!requireNamespace('RODBC'))
     stop('please install the `RODBC` package', call.=FALSE)
-  q <- "SELECT muiidref, musym, mustatus, muacres FROM lmapunit;"
+  q <- "SELECT muiidref, musym, mustatus, muacres FROM lmapunit_View_1;"
   # setup connection local NASIS
   channel <- RODBC::odbcDriverConnect(connection="DSN=nasis_local;UID=NasisSqlRO;PWD=nasisRe@d0n1y")
   d <- RODBC::sqlQuery(channel, q, stringsAsFactors=FALSE)
@@ -32,9 +40,11 @@ get_NASIS_legendmu <- function() {
 # Get map unit data
 mu <- readOGR(dsn = poly.dsn, layer = poly.layer, stringsAsFactors=FALSE)
 df <- mu@data
-foo <- ldply(split(df, df$MUSYM, drop=TRUE), .fun=function(x) { sum(x$Acres) })
+df$Acres_calc <- round(df$Shape_Area / 4046.86)
+foo <- ldply(split(df, df$MUSYM, drop=TRUE), .fun=function(x) { sum(x$Acres_calc) })
 colnames(foo) <- c("MUSYM","Spatial_Acres")
-
+foo$Spatial_Acres <- round(foo$Spatial_Acres)
+oldacres <- df$acres
 legend_mu <- uncode(get_NASIS_legendmu())
 names(legend_mu) <- c("MU Rec ID", "MUSYM", "Status","Legend_Acres")
 
@@ -45,5 +55,5 @@ legend_mu2$Spatial_Acres[is.na(legend_mu2$Spatial_Acres)] <- 0
 legend_mu2$match = (legend_mu2$Legend_Acres==legend_mu2$Spatial_Acres)
 
 kable(legend_mu2, row.names = FALSE)
-write.csv(legend_mu2, file = paste0("GDBAcreageReport_",format(Sys.time(), '%Y%m%d'),".csv"))
+write.csv(legend_mu2, file = paste0("GDBAcreageReport_", poly.layer, "_", format(Sys.time(), '%Y%m%d'),".csv"))
 ```

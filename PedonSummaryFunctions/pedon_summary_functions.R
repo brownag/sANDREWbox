@@ -535,5 +535,22 @@ getHorizons50to100cm <- function(p) {
   return(hz[(hz$phiid %in% hid),])
 }
 
+getPSCS <- function(p, attr) {
+  pscs <- estimatePSCS(p, tax_order_field = "taxorder")
+  hz.idx <- intersectHorizon(p, z1=pscs[1], z2=pscs[2])
+  hz <- horizons(p)[horizons(p)$phiid %in% hz.idx,]
+  w <- hz$hzdepb - hz$hzdept
+  return(weighted.mean(hz[[attr]], w, na.rm = T))
+}
 
+getPSCSclay <- function(p) {
+  return(getPSCS(p, 'clay'))
+}
 
+getPSCSfrags <- function(p) {
+  return(getPSCS(p, 'total_frags_pct'))
+}
+
+getPSCSfrags_nopf <- function(p) {
+  return(getPSCS(p, 'total_frags_pct_nopf'))
+}

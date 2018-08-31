@@ -1,0 +1,343 @@
+---
+title: "Compare"
+author: "Andrew Brown"
+date: "July 24, 2018"
+output: html_document
+---
+
+```{r,echo=F,warning=F,message=F}
+library(rgdal)
+library(plyr)
+library(knitr)
+library(soilDB)
+library(circular)
+
+raster.list <- list(
+    atemp=list(`maat`='L:/NRCS/MLRAShared/Geodata/project_data/MUSum_PRISM/final_MAAT_800m.tif'),
+    precip=list(`map`='L:/NRCS/MLRAShared/Geodata/project_data/MUSum_PRISM/final_MAP_mm_800m.tif'),
+    ffd=list(`ffd`='L:/NRCS/MLRAShared/Geodata/project_data/MUSum_PRISM/ffd_50_pct_800m.tif'),
+    elevation=list(`elev`='L:/NRCS/MLRAShared/Geodata/project_data/MUSum_10m_SSR2/SSR2_DEM10m_AEA.tif'),
+    slope=list(`gradient`='L:/NRCS/MLRAShared/Geodata/project_data/MUSum_10m_SSR2/SSR2_Slope10m_AEA.tif'),
+    aspect=list(`aspect`='L:/NRCS/MLRAShared/Geodata/project_data/MUSum_10m_SSR2/SSR2_Aspect10m_AEA.tif')
+)
+
+dsns <- c('S:/NRCS/Archive_Andrew_Brown/Scripts/CA630Legend/linework/FG_CA630_OFFICIAL_GIS_2018_0731.gdb',
+          'S:/NRCS/Archive_Andrew_Brown/Scripts/CA630Legend/linework/CA630_Join_Surveys_Final/CA077_Join_FY2018_0730_tkk.gdb',
+          'S:/NRCS/Archive_Andrew_Brown/Scripts/CA630Legend/linework/CA630_Join_Surveys_Final/CA632_Join_FY2018_030_TKK.gdb',
+          'S:/NRCS/Archive_Andrew_Brown/Scripts/CA630Legend/linework/CA630_Join_Surveys_Final/CA644_Join_FY2018_0730_TKK.gdb',
+          'S:/NRCS/Archive_Andrew_Brown/Scripts/CA630Legend/linework/CA630_Join_Surveys_Final/CA648_Join_FY2018_0730_TKK.gdb',
+          'S:/NRCS/Archive_Andrew_Brown/Scripts/CA630Legend/linework/CA630_Join_Surveys_Final/CA649_Join_FY2018_0730_TKK.gdb',
+          'S:/NRCS/Archive_Andrew_Brown/Scripts/CA630Legend/linework/CA630_Join_Surveys_Final/CA731_Join_FY2018_0730_TKK.gdb')
+
+layerz <- c('ca630_a','ca077_a','ca632_a','ca644_a','ca648_a','ca649_a','ca731_a')
+
+# mu.dsn <- 'L:/NRCS/MLRAShared/CA630/FG_CA630_OFFICIAL.gdb'
+# mu.layer <- 'ca630_a'
+mu.col <- 'MUSYM'
+pts.per.acre <- 3
+p.quantiles <- c(0, 0.05, 0.5, 0.95, 1)
+correct.sample.size <- FALSE
+cache.samples <- FALSE
+
+mu <- try(readOGR(dsn=dsns[1], layer=layerz[1], stringsAsFactors = FALSE))
+mu[[mu.col]] <- as.character(mu[[mu.col]])
+mu <- mu[, c("AREASYMBOL", "MUSYM")]
+mu.set <- sort(unique(mu[[mu.col]]))
+for(i in 2:length(dsns)) {
+  mu.adj <- try(readOGR(dsn=dsns[i], layer=layerz[i], stringsAsFactors = FALSE))
+  mu.adj[[mu.col]] <- as.character(mu.adj[[mu.col]])
+  mu <- rbind(mu, mu.adj[,c("AREASYMBOL", mu.col), drop=F])
+  if(class(mu) == 'try-error')
+    stop(paste0('Cannot read map unit polygon/feature file: "', dsns[i], ' / ', layerz[i], '"'), call. = FALSE)
+  if(!(mu.col %in% names(mu)))
+    stop(paste0('Cannot find map unit column (',mu.col,') in attribute table of: "', dsns[i], ' / ', layerz[i],'"'), call. = FALSE)
+}
+mu$pID <- seq(from=1, to=length(mu))
+
+# plot(mu)
+# plot(ca630bdy,lwd=3, add=T, col="red")
+
+# sampling.res <- suppressWarnings(sharpshootR::sampleRasterStackByMU(mu, mu.set, mu.col, raster.list, pts.per.acre, estimateEffectiveSampleSize = correct.sample.size))
+# save(mu, sampling.res,file = 'cached-samples.Rda')
+
+load('S:/NRCS/Archive_Andrew_Brown/Scripts/cached-samples.Rda')
+
+f.summary <- function(i, p) {
+  myvar <- unique(i$variable)
+  v <- na.omit(i$value)
+  q <- quantile(v, probs=p)
+  res <- data.frame(t(q))
+  if(nrow(res) > 0)
+    names(res) <- c(paste0('Q', p * 100))
+  if(myvar == "aspect") {
+    av <- na.omit(v)
+    c.p <- circular(av, units = "degrees", template = "geographics", modulo = "2pi")
+    rho.p <- rho.circular(c.p)
+    q <- quantile(c.p, probs = p)
+    res <- data.frame(t(c(as.numeric(q), rho.p)))
+    names(res) <- c(paste0('Q', p * 100), "Rho")
+  }
+  if(nrow(res) > 0) {
+    return(res)
+  } else
+    return(NULL)
+}
+
+#this takes a set of samples, and summarizes by MUSYM (.id)
+#mu.stats <- ddply(sampling.res$raster.samples, c('variable', '.id'), f.summary, p=p.quantiles)
+#save(mu.stats,file = "mu.stats.big.csv")
+load("mu.stats.big.csv")
+
+#fetch matching NASIS component data
+nasis.comp <- fetchNASIS_components()
+
+#fetch matching NASIS component data component pedon table, take RV and get the site data from copedon
+fetchNASIS_copedons <- function(rv=FALSE) {
+  if(!requireNamespace('RODBC'))
+    stop('please install the `RODBC` package', call.=FALSE)
+  q <- "SELECT * FROM copedon"
+  if(rv) {
+    q <- paste0(q, " WHERE rvindicator = 1;")
+  } else q <- paste0(q, ";")
+  channel <- RODBC::odbcDriverConnect(connection="DSN=nasis_local;UID=NasisSqlRO;PWD=nasisRe@d0n1y")
+  d <- RODBC::sqlQuery(channel, q, stringsAsFactors=FALSE)
+  RODBC::odbcClose(channel)
+  return(d)
+}
+
+get_legend_from_NASIS_db <- function() {
+  if(!requireNamespace('RODBC'))
+    stop('please install the `RODBC` package', call.=FALSE)
+  q <- "SELECT nationalmusym, dmuiid, dmudesc, coiid, musym, muname, mustatus FROM legend AS l
+          INNER JOIN lmapunit AS lmu ON lmu.liidref = l.liid
+          INNER JOIN mapunit AS mu ON mu.muiid = lmu.muiidref
+          INNER JOIN correlation AS cor ON cor.muiidref = mu.muiid
+          INNER JOIN datamapunit AS dmu ON dmu.dmuiid = cor.dmuiidref
+          INNER JOIN component AS co ON co.dmuiidref = dmu.dmuiid 
+        WHERE cor.repdmu = 1 AND lmu.mustatus != 4"
+  channel <- RODBC::odbcDriverConnect(connection="DSN=nasis_local;UID=NasisSqlRO;PWD=nasisRe@d0n1y")
+  d <- RODBC::sqlQuery(channel, q, stringsAsFactors=FALSE)
+  RODBC::odbcClose(channel)
+  return(d)
+}
+
+nasis.copedons <- fetchNASIS_copedons(rv = FALSE)
+nasis.pedons <- fetchNASIS_pedons()
+
+nasis.pedoborg <- merge(x=nasis.copedons, y=site(nasis.pedons), by.x <- "peiidref" , by.y="peiid", all.x=T)
+nasis.coborg <- merge(nasis.pedoborg[which(nasis.pedoborg$rvindicator==1),], site(nasis.comp), by.x="coiidref", by.y="coiid", all.y=T)
+nasis.coborg2 <-  merge(get_legend_from_NASIS_db(), nasis.coborg, by.x="coiid", by.y="coiidref", all.x=T)
+nasis.coborg3 <- nasis.coborg2[!is.na(nasis.coborg2$compname), ]
+
+nasis.coborg.columns <- c("musym","compname","site_id","pedon_id", "taxonname", "elev_l", "elev_field", "elev_r", "elev_h", "map_l", "map_r", "map_h", "maat_l", "maat_r", "maat_h", "ffd_l",  "ffd_r", "ffd_h", "slope_l", "slope_field", "slope_r", "slope_h", "aspectccwise", "aspect_field", "aspectrep", "aspectcwise")
+nasis.coborg.sort <- nasis.coborg3[order(nasis.coborg3$musym, nasis.coborg3$compname), nasis.coborg.columns]
+variables_by_musym <- split(mu.stats, mu.stats$variable)
+
+for(vv in 1:length(variables_by_musym)) {
+  v <- variables_by_musym[[vv]]
+  v.sub <- v[,-1]
+  newnames <- paste0(names(variables_by_musym)[vv], "", colnames(v.sub))
+  newnames[1] <- ".id"
+  colnames(v.sub) <- newnames
+  nasis.coborg.sort <- merge(nasis.coborg.sort, v.sub, by.x="musym", by.y=".id", all.x=T)
+}
+
+write.csv(file="nasis.coborg.csv", nasis.coborg.sort)
+#compare RVs
+## raster summary, NASIS, component pedon
+### represent in terms of quantile equivalents (i.e raster is always 50%)
+``` 
+
+```{r}
+#look at aspect
+#
+nasis.aspect <- nasis.coborg.sort#[!is.na(nasis.coborg.sort$aspectrep), ] #filter to just components with aspect populated
+
+df.aspect <- cbind(nasis.aspect[,c("musym","compname","site_id","pedon_id", "taxonname")], data.frame("Field"=nasis.aspect$aspect_field, "RV"=nasis.aspect$aspectrep, "CCW"=nasis.aspect$aspectccwise, "CW"=nasis.aspect$aspectcwise, "Q5"=nasis.aspect$aspectQ5,"Q50"=nasis.aspect$aspectQ50,"Q95"= nasis.aspect$aspectQ95, "Rho"= nasis.aspect$aspectRho))
+df.aspect <- transform(df.aspect, RVisField=(RV == Field))
+write.csv("aspect.csv",x=df.aspect)
+plot(density(df.aspect$Rho, na.rm = T))
+
+df.aspectorder <- data.frame(musym=df.aspect$musym, rho_order=order(df.aspect$Rho,decreasing=T), rho=df.aspect$Rho)
+write.csv(unique(df.aspectorder[df.aspectorder$rho_order,c("musym","rho")]),file="aspect_dependency.csv")
+
+most.aspect.dependent.components <- df.aspect[df.aspect$Rho > 0.4,]
+most.aspect.dependent.components <- most.aspect.dependent.components[order(most.aspect.dependent.components$Rho,decreasing = T),]
+kable((most.aspect.dependent.components))
+
+least.aspect.dependent.components <- df.aspect[df.aspect$Rho < 0.4,]
+least.aspect.dependent.components <- least.aspect.dependent.components[order(least.aspect.dependent.components$Rho,decreasing = T),]
+kable((least.aspect.dependent.components))
+```
+
+```{r}
+# look at slope
+nasis.slope <- nasis.coborg.sort
+
+df.slope <- cbind(nasis.slope[,c("musym","compname","site_id","pedon_id", "taxonname")], data.frame("Low"=nasis.slope$slope_l, "Field"=nasis.slope$slope_field, "RV"=nasis.slope$slope_r, "High"=nasis.slope$slope_h, "Q5"=nasis.slope$gradientQ5,"Q50"=nasis.slope$gradientQ50,"Q95"= nasis.slope$gradientQ95))
+df.slope <- transform(df.slope, RVisField=(RV == Field))
+write.csv("slope.csv",x=df.slope)
+```
+
+```{r}
+# look at elevation
+nasis.elev <- nasis.coborg.sort
+
+mround <- function(x,base){ 
+        base*round(x/base) 
+} 
+
+df.elev <- cbind(nasis.elev[,c("musym","compname","site_id","pedon_id", "taxonname")], data.frame("Low"=nasis.elev$elev_l,"Field"=nasis.elev$elev_field, "RV"=nasis.elev$elev_r, "High"=nasis.elev$elev_h, "Q5"=nasis.elev$elevQ5,"Q50"=nasis.elev$elevQ50,"Q95"= nasis.elev$elevQ95))
+df.elev <- transform(df.elev, RVisField=(RV == Field))
+
+df.elev$LoDiff=(nasis.elev$elev_l - mround(nasis.elev$elevQ5, 5))
+
+df.elev$RVDiff=(nasis.elev$elev_r - mround(nasis.elev$elevQ50, 5))
+
+df.elev$HiDiff=(nasis.elev$elev_h - mround(nasis.elev$elevQ95, 5))
+
+
+write.csv("elevation.csv",x=df.elev)
+```
+
+```{r}
+# look at map
+nasis.map <- nasis.coborg.sort
+
+mround <- function(x,base){ 
+        base*round(x/base) 
+} 
+
+df.map <- cbind(nasis.map[,c("musym","compname","site_id","pedon_id", "taxonname")], data.frame("Low"=nasis.map$map_l, "RV"=nasis.map$map_r, "High"=nasis.map$map_h, "Q5"=nasis.map$mapQ5,"Q50"=nasis.map$mapQ50,"Q95"= nasis.map$mapQ95))
+df.map <- transform(df.map, RVisField=(RV == Field))
+
+df.map$LoDiff=(nasis.map$map_l - mround(nasis.map$mapQ5, 5))
+
+df.map$RVDiff=(nasis.map$map_r - mround(nasis.map$mapQ50, 5))
+
+df.map$HiDiff=(nasis.map$map_h - mround(nasis.map$mapQ95, 5))
+
+write.csv("precip.csv",x=df.map)
+```
+
+```{r}
+# look at maat
+nasis.maat <- nasis.coborg.sort
+
+mround <- function(x,base){ 
+        base*round(x/base) 
+} 
+
+df.maat <- cbind(nasis.maat[,c("musym","compname","site_id","pedon_id", "taxonname")], data.frame("Low"=nasis.maat$maat_l, "RV"=nasis.maat$maat_r, "High"=nasis.maat$maat_h, "Q5"=nasis.maat$maatQ5,"Q50"=nasis.maat$maatQ50,"Q95"= nasis.maat$maatQ95))
+# df.maat <- transform(df.maat, RVisField=(RV == Field))
+
+df.maat$LoDiff=(nasis.maat$maat_l - mround(nasis.maat$maatQ5, 1))
+
+df.maat$RVDiff=(nasis.maat$maat_r - mround(nasis.maat$maatQ50, 1))
+
+df.maat$HiDiff=(nasis.maat$maat_h - mround(nasis.maat$maatQ95, 1))
+
+write.csv("maat.csv",x=df.maat)
+```
+
+```{r}
+# look at ffd
+nasis.ffd <- nasis.coborg.sort
+
+mround <- function(x,base){ 
+        base*round(x/base) 
+} 
+
+df.ffd <- cbind(nasis.ffd[,c("musym","compname","site_id","pedon_id", "taxonname")], data.frame("Low"=nasis.ffd$ffd_l, "RV"=nasis.ffd$ffd_r, "High"=nasis.ffd$ffd_h, "Q5"=nasis.ffd$ffdQ5,"Q50"=nasis.ffd$ffdQ50,"Q95"= nasis.ffd$ffdQ95))
+# df.ffd <- transform(df.ffd, RVisField=(RV == Field))
+
+df.ffd$LoDiff=(nasis.ffd$ffd_l - mround(nasis.ffd$ffdQ5, 5))
+
+df.ffd$RVDiff=(nasis.ffd$ffd_r - mround(nasis.ffd$ffdQ50, 5))
+
+df.ffd$HiDiff=(nasis.ffd$ffd_h - mround(nasis.ffd$ffdQ95, 5))
+
+write.csv("ffd.csv",x=df.ffd)
+```
+
+```{r}
+#megageodatabase for andy, with dmudesc for mus on CA630 legend
+legendd <- get_legend_from_NASIS_db()
+legendsym <- list()
+legendsym[legendd$musym] <- legendd$dmudesc
+mu$dmudesc <- as.character(legendsym[mu$MUSYM])
+writeOGR(mu, driver = "ESRI Shapefile", dsn="S:/NRCS/Archive_Andrew_Brown/Scripts/ComponentPedon",layer="megageodatabase")
+```
+
+```{r}
+#check to see which pedons havent been added to copedon set yet
+all.copedons <- fetchNASIS_copedons(rv=F)
+all.pedons <- fetchNASIS_pedons()
+
+ca630_a <- readOGR(dsn = dsns[1], layer="ca630_a")
+ca630_b <- readOGR(dsn = dsns[1], layer="ca630_b")
+good.idx <- which(!is.na(all.pedons$x_std))
+all.pedons <- all.pedons[good.idx, ]
+coordinates(all.pedons) <- ~ x_std + y_std
+proj4string(all.pedons) <- '+proj=longlat +datum=NAD83'
+
+all.pedons.spdf <- as(all.pedons, 'SpatialPointsDataFrame')
+all.pedons.spdf <- spTransform(all.pedons.spdf, CRS(proj4string(ca630_b)))
+
+all.pedons.spdf$in_ca630 <- (over(all.pedons.spdf, ca630_b)$AREASYMBOL == "CA630")
+all.pedons.spdf$musym <- over(all.pedons.spdf, ca630_a)$MUSYM
+
+all.pedons.630 <- all.pedons.spdf[which(all.pedons.spdf$in_ca630), ]
+missing.pedons <- all.pedons.630[-which(all.pedons.630$peiid %in% all.copedons$peiidref),]
+
+write.csv(file="missing.pedons.V3.csv" , missing.pedons)
+writeOGR(dsn="S:/NRCS/Archive_Andrew_Brown/Scripts/ComponentPedon", layer = "missing.pedons.v2", driver="ESRI Shapefile", missing.pedons, overwrite=T)
+```
+
+```{r}
+#looking at 128 cogna mapunit
+maat128 <- sampling.res$raster.samples[which(sampling.res$raster.samples$variable == "maat" & sampling.res$raster.samples$.id == "128" ),]
+plot(density(maat128$value))
+```
+
+```{r}
+#using project table to find musyms of mlra mapunits, aggregating
+#
+
+get_pmunasis <- function (stringsAsFactors = F) 
+{
+  if (!requireNamespace("RODBC")) 
+    stop("please install the `RODBC` package", call. = FALSE)
+  q <- paste(
+"SELECT p.projectiid, p.uprojectid, p.projectname, pmu.seqnum pmu_seqnum, a2.areasymbol, lmu.musym, lmu.lmapunitiid AS mukey, mu.nationalmusym, mutype, lmu.mustatus, muname, muacres
+             FROM project p 
+               INNER JOIN projectmapunit  pmu ON pmu.projectiidref = p.projectiid 
+               LEFT OUTER JOIN            mapunit mu ON mu.muiid = pmu.muiidref 
+               LEFT OUTER JOIN            lmapunit lmu ON lmu.muiidref = mu.muiid 
+               LEFT OUTER JOIN            legend l ON l.liid = lmu.liidref          
+               INNER JOIN                 area a ON a.areaiid = p.mlrassoareaiidref            
+               LEFT OUTER JOIN            area a2 ON a2.areaiid = l.areaiidref           
+             WHERE l.legendsuituse != 1 OR l.legendsuituse IS NULL
+             ORDER BY p.projectname, a.areasymbol, lmu.musym;
+")
+  channel <- RODBC::odbcDriverConnect(connection = getOption("soilDB.NASIS.credentials"))
+  d.project <- uncode(RODBC::sqlQuery(channel, q, stringsAsFactors = FALSE), stringsAsFactors = stringsAsFactors)
+  RODBC::odbcClose(channel)
+  return(d.project)
+}
+  
+
+p <- get_pmunasis()
+p.sub <- p[grepl(p$uprojectid, pattern="2018-2SON-MLRA-6.*"),]
+p.sub <- p.sub[order(p.sub$uprojectid, p.sub$areasym, p.sub$musym, decreasing = F),]
+p.sub$areamusym <- as.character(paste0(p.sub$areasymbol, p.sub$musym))
+
+upids <- unique(p.sub$uprojectid)
+areasym <-  split(p.sub$areasym, p.sub$uprojectid, drop = T)
+musyms <-  split(p.sub$musym, p.sub$uprojectid, drop = T)
+for(s in 1:length(upids)) {
+  print(upids[s])
+  print(data.frame(AREASYM=areasym[[s]], MUSYM=musyms[[s]]))
+  print("-------")
+}
+```
