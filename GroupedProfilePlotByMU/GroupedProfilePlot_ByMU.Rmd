@@ -10,10 +10,10 @@ output: html_document
 ####Configuration
 ```{r, echo=F, results='asis'}
 workdir <- "S:\\NRCS\\Archive_Andrew_Brown\\Scripts\\GroupedProfilePlotByMU\\" #directory containing script and output folders
-mu_source <- 'L:/NRCS/MLRAShared/CA630/FG_CA630_OFFICIAL.gdb' # polygon feature path 
+mu_source <- 'L:/NRCS/MLRAShared/CA630/Archived_OFFICIAL_DB/FG_CA630_GIS_2018_0818_TKK.gdb' # polygon feature path 
 mu_layer <- 'ca630_a' # polygon feature class for overlay NASIS pedons 
 
-output_directory <- "gpps"
+output_directory <- "gpps_PRIESTCOPPER"
 poly_attribute <-  'MUSYM' #attribute containing unique identifyer of feature classes (e.g 'MUSYM')
 targetMU='.' # regular expressions specifying which mapunit symbols to make plots for
 ```

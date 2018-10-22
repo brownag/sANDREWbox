@@ -12,7 +12,7 @@ output: html_document
 ###
 #Enter a regex pattern to match dmudesc
 ###
-dmupattern = "620."
+dmupattern = "Crimeahouse|Gopheridge|Whiterock"
 cat("DMUID Pattern: ",dmupattern)
 ##################################
 
@@ -175,7 +175,7 @@ ce <- ce[order(ce$dmudesc,-ce$comppct_r),namez]
 ```{r, echo=F, results="asis"}
 for(ss in levels(factor(ce$dmudesc))) {
   cat("####", ss, "\n")
-  print(kable(ce[which(ce$dmudesc == ss),],row.names = F,align='c'))
+  print(kable(ce[which(ce$dmudesc == ss),-1],row.names = F,align='c'))
   cat("\n***\n")
 }
 ```

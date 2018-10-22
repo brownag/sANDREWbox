@@ -10,25 +10,27 @@ library(rgdal)
 library(soilDB)
 library(pacman)
 
-mu <- readOGR(dsn = 'L:/NRCS/MLRAShared/CA630/FG_CA630_OFFICIAL.gdb', layer = 'ca630_a', stringsAsFactors=FALSE)
-surveybdy <- readOGR(dsn = 'L:/NRCS/MLRAShared/CA630/FG_CA630_OFFICIAL.gdb', layer = 'ca630_b', stringsAsFactors=FALSE)
-mlrabdy <- readOGR(dsn = 'F:/Geodata/mlra', layer = 'mlra_z10_a_mo2', stringsAsFactors=F)
+mu <- readOGR(dsn = 'L:/NRCS/MLRAShared/CA630/Archived_OFFICIAL_DB/final/FG_CA630_GIS_2018.gdb', layer = 'ca630_a', stringsAsFactors=FALSE)
+surveybdy <- readOGR(dsn = 'L:/NRCS/MLRAShared/CA630/Archived_OFFICIAL_DB/final/FG_CA630_GIS_2018.gdb', layer = 'ca630_b', stringsAsFactors=FALSE)
+mlrabdy <- readOGR(dsn = 'L:/NRCS/MLRAShared/Geodata/mlra', layer = 'mlra_z10_a_mo2', stringsAsFactors=F)
 
 surveybdy$areasymbol <- "CA630"
-
 x <- fetchNASIS()
+x <- x[which(x$pedonpurpose == 'laboratory sampling site'),]
 x$taxonname = toupper(x$taxonname)
 
 good.idx <- which(!is.na(x$x_std))
 x.bad <- x[-good.idx, ]
 x <- x[good.idx, ]
 coordinates(x) <- ~ x_std + y_std
-proj4string(x) <- '+proj=longlat +datum=NAD83'
+proj4string(x) <- '+proj=longlat +datum=WGS84'
 x.sub <- as(x, 'SpatialPointsDataFrame')
 x.sub <- spTransform(x.sub, CRS(proj4string(mu)))
 site(x)$musym <- over(x.sub, mu)$MUSYM 
+
 x.sub <- spTransform(x.sub, CRS(proj4string(surveybdy)))
-site(x)$areasym[!is.na(over(x.sub, surveybdy)[,1])] <- surveybdy$areasymbol
+site(x)$areasym[!is.na(over(x.sub, surveybdy)[,1])] <- surveybdy$areasymbol[1]
+
 x.sub <- spTransform(x.sub, CRS(proj4string(mlrabdy)))
 site(x)$mlra <-over(x.sub, mlrabdy)$MLRA2002
 ```
@@ -136,6 +138,8 @@ nrow(gis) #number of records with valid spatial data WITH a pedon record... can 
 nrow(areao_flat) #number of records with one or more areaoverlap records (flattened to one record using agg->paste)
 nrow(muo) #number of pedons in nasis with mapunit overlap set
 
+#head(gis)
+#write.csv(gis,file="CA630-lab_sampling_sites-MUOVERLAP.csv")
 #most serious order of business... which pedons have been assigned a MU in muoverlap... but are no longer in that mapunit!
 gis$musym_match <- NA
 compare.idx <- which(gis$site_id %in% muo$usiteid)
