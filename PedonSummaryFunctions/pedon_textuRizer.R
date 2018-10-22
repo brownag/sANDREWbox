@@ -13,8 +13,9 @@ coordinates(pedons) <- ~ x_std + y_std
 proj4string(pedons) <- '+proj=longlat +datum=WGS84'
 pedons@sp <- spTransform(pedons@sp, CRS(proj4string(ca630_b)))
 
-p.sub <- pedons[which(pedons$taxonname == 'Arpatutu' | pedons$taxonname == "Typic Haploxerults"),]
-p.sub <- p.sub[-which(grepl(p.sub$pedon_id,pattern = '2017')),]
+p.sub <- pedons[which(pedons$taxonkind == 'series'),]
+#p.sub <- pedons[which(pedons$taxonname == 'Arpatutu' | pedons$taxonname == "Typic Haploxerults"),]
+#p.sub <- p.sub[-which(grepl(p.sub$pedon_id,pattern = '2017')),]
 
 #f <- profileApply(p.sub, FUN=checkProfileFineEarthLimits, skipNA=FALSE)
 
@@ -24,7 +25,8 @@ p.sub$pscs_frag <-profileApply(p.sub, FUN=getPSCSfrags)
 nonskeletal <- p.sub[which(p.sub$pscs_frag < 35), ]
 
 
-aggregate(p.sub$pscs_clay, by=list(p.sub$taxonname), FUN=quantile, na.rm=T)
+aggregate(p.sub$pscs_clay, by=list(p.sub$taxonname), FUN=quantile, na.rm=T, p=c(0,0.05,0.5,0.95,1))
+aggregate(p.sub$pscs_frag, by=list(p.sub$taxonname), FUN=quantile, na.rm=T, p=c(0,0.05,0.5,0.95,1))
 
 heavy.arpatutus.idx <- which(p.sub$pscs_clay > 18 & p.sub$taxonname == 'Arpatutu')
 

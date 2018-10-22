@@ -535,22 +535,32 @@ getHorizons50to100cm <- function(p) {
   return(hz[(hz$phiid %in% hid),])
 }
 
-getPSCS <- function(p, attr) {
+getPSCS <- function(p, attr, dtype='pedon') {
   pscs <- estimatePSCS(p, tax_order_field = "taxorder")
-  hz.idx <- intersectHorizon(p, z1=pscs[1], z2=pscs[2])
-  hz <- horizons(p)[horizons(p)$phiid %in% hz.idx,]
+  iid.col <- "phiid"
+  if(dtype == "pedon") {
+    hz.idx <- intersectHorizon(p, z1=pscs[1], z2=pscs[2])
+  } else if(dtype == "lab") {
+    hz.idx <- intersectLabHorizon(p, z1=pscs[1], z2=pscs[2])
+    iid.col <- "labsampnum"
+  } else if(dtype == "component") {
+    hz.idx <- intersectComponentHorizon(p, z1=pscs[1], z2=pscs[2])
+    iid.col <- "chiid"
+  }
+  hz <- horizons(p)[horizons(p)[,iid.col] %in% hz.idx,]
   w <- hz$hzdepb - hz$hzdept
-  return(weighted.mean(hz[[attr]], w, na.rm = T))
+  df <- na.omit(data.frame(atr=hz[[attr]], weight=w))
+  return(weighted.mean(df$atr, df$weight))
 }
 
-getPSCSclay <- function(p) {
-  return(getPSCS(p, 'clay'))
+getPSCSclay <- function(p, ...) {
+  return(getPSCS(p, 'clay', ...))
 }
 
-getPSCSfrags <- function(p) {
-  return(getPSCS(p, 'total_frags_pct'))
+getPSCSfrags <- function(p, ...) {
+  return(getPSCS(p, 'total_frags_pct', ...))
 }
 
-getPSCSfrags_nopf <- function(p) {
-  return(getPSCS(p, 'total_frags_pct_nopf'))
+getPSCSfrags_nopf <- function(p, ...) {
+  return(getPSCS(p, 'total_frags_pct_nopf', ...))
 }

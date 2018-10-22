@@ -111,4 +111,7 @@ writeOGR(as(f.sub,'SpatialPointsDataFrame'), dsn = ".", layer="mlra22a_ultisols"
 precip <- raster("L:/NRCS/MLRAShared/Geodata/project_data/MUSum_PRISM/final_MAP_mm_800m.tif")
 f.sub$precip_mm <- extract(precip, as(f.sub,'SpatialPointsDataFrame'))
 
-plot((f.sub$precip_mm ~ factor(f.sub$rez)))
+plot((f.sub$precip_mm ~ factor(f.sub$rez)), xlab="Taxonomic Criterion", ylab="Mean Annual Precipitation, mm")
+
+humultz <- f.sub[humult.idx,]
+quantile(horizons(humultz)[grepl(humultz$hzn_desgn, pattern='Bt1'),]$estimated_om, na.rm=T, p=c(0.05,0.95))
