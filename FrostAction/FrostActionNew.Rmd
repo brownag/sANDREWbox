@@ -1,0 +1,405 @@
+---
+title: "Frost Action Renewed"
+author: "Andrew Brown"
+date: "December 19, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(plyr)
+library(dplyr)
+library(soilDB)
+library(sp)
+library(maps)
+library(rgdal)
+library(raster)
+library(rms)
+library(rasterVis)
+
+knitr::opts_chunk$set(echo = TRUE)
+rasterOptions(tmpdir = 'C:/Temp/raster')
+
+getData <- function(i) {
+  print(i$STA)
+  x <- try(CDECquery(id=i$STA, sensor=30, interval='D', start='1900-01-01', end='2017-12-31'))
+  if(class(x) == 'try-error')
+    return(NULL)
+  else
+    return(x)
+}
+  
+# only re-download data if our cached version is missing/renamed
+if(!file.exists('cached-data.Rda')) {
+  stations <- read.csv('S:/NRCS/Archive_Andrew_Brown/Scripts/FrostAction/CDEC_Stations.csv', stringsAsFactors = FALSE, comment.char = '', quote='"', na.strings = ' ')
+  
+  stations$Elevation <- as.numeric(stations$Elevation)*0.3048
+  
+  # filter bogus coordinates
+  stations <- subset(stations, subset=Latitude <= 90)
+  
+  coordinates(stations) <- ~ Longitude + Latitude
+  proj4string(stations) <- '+proj=longlat +datum=NAD83'
+  
+  # keep the stations with mean daily temp (code 30)
+  idx <- grep('30', stations$Sensors)
+  stations <- stations[idx, ]
+
+  s <- split(stations, stations$STA)
+  s.data <- lapply(s, FUN=getData)
+  x <- ldply(s.data)
+  save(x, stations, file='cached-data.Rda')
+} else {
+  load('cached-data.Rda')
+}
+```
+
+There are `r nrow(stations)` in the CDEC data.
+
+
+### Preparing CDEC Mean Daily Temperature Data
+```{r}
+CDEC_meanDailyTemp_clean <- function(y, bad.data.threshold=-50) {
+  #Filter known NoData values
+  y[y == -9999] <- NA
+  
+  #TODO: better alternative for mapping 0s to nodata... use repeated identical values rather than just y == 0
+  #y[y == 0] <- NA
+  
+  #Throw out completely physically unreasonable values
+  bad.idx <- which(y < bad.data.threshold)
+  y2 <- y
+  y2[bad.idx] <- NA
+  
+  #We will use the derivative of the time series to find discontinuous/anomalous extreme values
+  #Sometimes bad data occur adjacent to NoData. Encode all NAs with alternating 999 / -999 for diff()
+  fix <- rep(c(999,-999), round((length(y2[is.na(y2)]) + 1) / 2))
+  fix.idx <- which(is.na(y2))
+  
+  #calculate the absolute change in temperature between adjacent points; duplicate first data point to preserve indexing relative to original time series (diff between duplicate and true first point equals zero)
+  da.y <- abs(diff(c(y2[1], abs(y2))))
+  
+  thresh <- quantile(da.y[-fix.idx], probs=c(0.999), na.rm=T)
+  bad.idx <- (which(da.y > thresh))
+  y3 <- y2
+  y3[bad.idx] <- NA
+  
+  thresh2 <- quantile(y3, probs=c(0.0001,0.9999), na.rm=T)
+  y4 <- y3
+  y4[y3 <= thresh2[1] | y3 >= thresh2[2]] <- NA
+  
+  return(y4)
+}
+```
+
+#### Exchequer Reservoir Station (example 1)
+```{r}
+#Grab a single station data
+goo <- x[x$station_id == "EXC",]
+
+#Plot the full record
+a.y <- goo$value
+
+#Filter known NoData values
+a.y[a.y == -9999] <- NA
+par(mfrow=c(3,1))
+plot(goo$value, main="raw")
+plot(a.y, main="NODATA removed")
+plot(CDEC_meanDailyTemp_clean(goo$value), main="Global Quantile-based Filtering")
+#TODO: moving window or yearly quantile based filtering of daily data?
+par(mfrow=c(1,1))
+```
+
+```{r}
+#Grab a single station data
+goo <- x[x$station_id == "CFW",]
+
+#Plot the full record
+a.y <- goo$value
+
+#Filter known NoData values
+a.y[a.y == -9999] <- NA
+par(mfrow=c(3,1))
+plot(goo$value, main="raw")
+plot(a.y, main="NODATA removed")
+plot(CDEC_meanDailyTemp_clean(goo$value), main="Global Quantile-based Filtering")
+abline(h=32, lwd=2, col="blue")
+#TODO: moving window or yearly quantile based filtering of daily data?
+par(mfrow=c(1,1))
+```
+
+
+### Locations of CDEC stations
+```{r}
+mlras <- readOGR(dsn='.', layer="mlra")
+mlras <- spTransform(mlras, CRS(proj4string(stations)))
+
+colz <- heat.colors(length(levels(mlras$MLRARSYM)))
+names(colz) <- levels(mlras$MLRARSYM)
+
+stations$mlra <- over(x=stations, y=mlras)$MLRARSYM
+in.idx <- stations$mlra %in% c('17','18','22A')
+stations.sub <- stations[in.idx, ]
+
+map('county', 'ca', xlim=extent(stations.sub)[1:2], ylim=extent(stations.sub)[3:4])
+plot(mlras, add=T, col=colz[mlras$MLRARSYM], pch=3, cex=0.5)
+points(stations[!in.idx, ], col='black', pch=3, cex=0.5)
+points(stations.sub, col='blue', pch=19, cex=0.5)
+```
+
+### The Design Freezing Index
+The Design Freezing Index refers to the number of Freezing Degree Days accumulated during the coldest year in 10 (0.90 quantile of Freezing Degree Days)
+
+Freezing Degree Days are calculated in a way that is analogous to Growing Degree Days. In both Degree Day methods, a threshold is specified above or below which "Degree Days" accumulate. The mean daily temperature difference from the threshold is calculated for all days and summed over a season (either the frost season or the growing season). In the case of Growing Degree Days, this threshold is often species or production system specific. In the case of Freezing Degree Days, the threshold is conventionally 32 degrees F or 0 degrees C. 
+
+```{r}
+alignDOY <- function(dt, value, fill=FALSE) {
+  if(length(value) > 366)
+    stop('this function expects a single year of data')
+  doy.template <- vector(mode = 'numeric', length = 366)
+  doy.template <- rep(NA, times=366)
+  doy <- as.integer(format(as.Date(dt), "%j"))
+  doy.template[doy] <- value
+  return(doy.template)
+}
+
+## TODO: better accounting for 0 days of spring / fall frost
+
+# locate the last spring frost / first fall frost DOY
+# v: vector of values that has been aligned to vector of 366 values
+# frostTemp: critical temperature that defines "frost"
+# endSpringDOY: day that marks end of "spring" (typically Jan 1 -- June 30)
+# startFallDOY: day that marks start of "fall" (typically Aug 1 -- Dec 31)
+findFirstLastFrostDOY <- function(v, frostTemp=32, endSpringDOY=182, startFallDOY=213) {
+  # 366 used to account for leap-years
+  if(length(v) > 366)
+    stop('this function expects a single year of data')
+  # split year
+  v.spring <- v[1:endSpringDOY]
+  v.fall <- v[startFallDOY:366]
+  # vector of DOY so that fall indexing is correct
+  doy <- 1:366
+  doy.spring <- doy[1:endSpringDOY]
+  doy.fall <- doy[startFallDOY:366]
+  # last spring frost: the index 
+  spring.idx <- which(v.spring < frostTemp)
+  # the last julian day below freezing is the last spring frost
+  # if there are no days below critical temperature, then use first day of the year (1)
+  last.spring.frost <- ifelse(length(spring.idx) < 1, 1, max(doy.spring[spring.idx], na.rm=TRUE))
+  # first fall frost
+  fall.idx <- which(v.fall < frostTemp)
+  # the first julian day below freezing is the first fall frost
+  # if there are no days below critical temperature, then use last day of the year (366)
+  first.fall.frost <- ifelse(length(fall.idx) < 1, 366, min(doy.fall[fall.idx], na.rm=TRUE))
+  return(data.frame(lastSpring=last.spring.frost, firstFall=first.fall.frost))
+}
+
+# identify the frost-free period for a single year
+# d: data.frame with 'datetime' and 'value' columns
+# minDays: rule for min number of days required (ea. spring|fall) for estimation
+# \dots: further arguments passed to findFirstLastFrostDOY()
+# result is a data.frame with first/last frost DOY
+frostFreePeriod <- function(d, minDays=165, ...) {
+  # align values with DOY in the presence of missing data
+  v <- alignDOY(d$datetime, d$value)
+  # sanity check: need at least 164 days of data / semi-annual period
+  n.spring <- length(which(!is.na(v[1:182])))
+  n.fall <- length(which(!is.na(v[183:366])))
+  if(any(c(n.spring < minDays, n.fall < minDays)))
+    return(NULL)
+  # get the last spring and first fall frost DOY
+  fl <- findFirstLastFrostDOY(v, ...)
+  return(fl) 
+}
+
+FreezingIndexV2 <- function(d, frostTemp, p, detection.limit = 10, bad.data.threshold=-50, ...) {
+  d.y <- ddply(d, 'year', 
+               function(i) { 
+                  a.y <- alignDOY(i$datetime, i$value)
+                  ffp <- frostFreePeriod(i)
+                  a.y2 <- CDEC_meanDailyTemp_clean(a.y, bad.data.threshold)
+                  a.y2[a.y2 > frostTemp] <- NA
+                  a.y2 <- -(a.y2 - frostTemp)
+                  if(!is.null(ffp))
+                    return(sum(a.y2, na.rm=T))
+                  else 
+                    return(NA)
+                })
+  n.yrs <- nrow(d.y)
+  q <- quantile(d.y$V1, probs=p, na.rm=T)[1]
+  return(q)
+}
+
+FreezingIndex <- function(d, frostTemp, p, detection.limit = 10, bad.data.threshold=-25, ...) {
+  d.y <- ddply(d, 'year', 
+               function(i) { 
+                  a.y <- alignDOY(i$datetime, i$value)
+                  ffp <- frostFreePeriod(i)
+                  a.y[a.y == -9999] <- 0
+                  a.y[a.y > frostTemp] <- 0
+                  a.y[a.y == 0] <- frostTemp
+                  a.y[a.y <= bad.data.threshold] <- frostTemp
+                  #a.y[a.y < bad.data.threshold] <- 0
+                  #a.y[which(a.y != 0)] <- which(a.y != 0) - frostTemp
+                  a.y <- -(a.y - frostTemp)
+                  if(!is.null(ffp))
+                    return(sum(a.y, na.rm=T))
+                  else 
+                    return(NA)
+                })
+  n.yrs <- nrow(d.y)
+  q <- quantile(d.y$V1, probs=p, na.rm=T)[1]
+  return(q)
+}
+
+DesignFreezingIndex <- function(d, ...) {
+   frostTemp <- 32
+   p <- 0.9 #the "design" freezing index is the freezing index 90th percentile
+   return(FreezingIndexV2(d, frostTemp, p, ...))
+}
+```
+
+```{r}
+x.dfi <- dlply(x, '.id', .fun=DesignFreezingIndex, .progress = 'text')
+df.dfi <- data.frame(STA=names(x.dfi), DFI=(unlist(x.dfi)))
+stations.dfi <- merge(stations.sub, df.dfi, by='STA')
+stations.dfi$PFA <- stations.dfi$DFI > 250
+plot(DFI ~ Elevation, data=stations.dfi)
+plot(PFA ~ Elevation, data=stations.dfi)
+
+colz2 <- topo.colors(2)
+names(colz2) <- c("TRUE", "FALSE")
+plot(stations.dfi, col=colz2[as.character(stations.dfi$PFA)], pch=3)
+
+writeOGR(stations.dfi, dsn=".", layer="dfi_stations", driver="ESRI Shapefile", overwrite_layer = T)
+```
+
+### Logistic Regression for Prediction of "Potential Frost Action"
+```{r}
+stations.dfi.data <- stations.dfi@data[complete.cases(stations.dfi@data[,c("Elevation","DFI","PFA")]),]
+stations.dfi.data$PFA <- as.numeric(stations.dfi.data$PFA)
+
+train.idx <- sample(1:nrow(stations.dfi), 0.75*nrow(stations.dfi))
+test.idx <- which(!(1:nrow(stations.dfi) %in% train.idx))
+
+train <- stations.dfi@data[train.idx, ]
+test <- stations.dfi@data[test.idx, ]
+dd <- datadist(train)
+options(datadist="dd")
+m1 <- lrm(PFA ~ Elevation, data=train)
+m2 <- lrm(PFA ~ rcs(Elevation), data=train)
+anova(m1)
+anova(m2)
+
+#make prediction across full elevation range, using elevation as linear effect (m1) and using restricted cubic splines (m2)
+pred1 <- Predict(m1, Elevation=0:3500)
+pred2 <- Predict(m2, Elevation=0:3500)
+
+plot(pred1)
+plot(pred2)  
+
+#penalize nonlinear terms used in m2
+m3 <- update(m2, penalty=list(simple=0, nonlinear=1), x=TRUE, y=TRUE)
+anova(m3)
+
+#check the penalized degrees of freedom (less than m2)
+effective.df(m3)
+
+#make prediction across full elevation range with penalized model
+pred3 <- Predict(m3, Elevation=0:3500)
+plot(pred3)
+
+#make predictions using test point elevations, check against observed DFI/PFA
+test1 <- Predict(m1, Elevation=test$Elevation)
+test2 <- Predict(m2, Elevation=test$Elevation)
+test3 <- Predict(m3, Elevation=test$Elevation)
+
+test1$prob <- exp(test1$yhat) / (1 + exp(test1$yhat))
+test2$prob <- exp(test2$yhat) / (1 + exp(test2$yhat))
+test3$prob <- exp(test3$yhat) / (1 + exp(test3$yhat))
+
+test1$aprob <- 1 - test1$prob
+test2$aprob <- 1 - test2$prob
+test3$aprob <- 1 - test3$prob
+
+test1 <- test1[order(test1$Elevation),]
+test2 <- test2[order(test2$Elevation),]
+test3 <- test3[order(test3$Elevation),]
+
+plot(test1$prob~test1$Elevation, type="l", lty=1, lwd=2, 
+    xlab = "Elevation, meters",
+    ylab = "Probability of 'Potential' Frost Action (DFI > 250 F-days)")
+points(train$PFA~train$Elevation, pch=19)
+points(test$PFA~test$Elevation, cex=0.5)
+lines(test2$prob~test2$Elevation, lty=2, lwd=2)
+lines(test3$prob~test3$Elevation, lty=3, lwd=3, col="RED")
+
+test1$shannon <- as.numeric(lapply(split(as.data.frame(test1), f=1:nrow(test1)),FUN = function(x) {
+      return(aqp::shannonEntropy(x[,5:6]))
+    }
+  ))
+test2$shannon <- as.numeric(lapply(split(as.data.frame(test2), f=1:nrow(test2)),FUN = function(x) {
+      return(aqp::shannonEntropy(x[,5:6]))
+    }
+  ))
+test3$shannon <- as.numeric(lapply(split(as.data.frame(test3), f=1:nrow(test3)),FUN = function(x) {
+      return(aqp::shannonEntropy(x[,5:6]))
+    }
+  ))
+
+plot(test1$shannon~test1$Elevation, main="Test Data Shannon Entropy across Elevation for Linear, RCS and penalized RCS models",type="l", lwd=2, xlab="Elevation, m", ylab="Shannon Entropy (lower values = more certainty of frost action class)")
+lines(test2$shannon~test2$Elevation, lwd=2, col="blue")
+lines(test3$shannon~test3$Elevation, lwd=2, col="green")
+legend(x=2500, y=0.95, legend=c("Linear","RCS","Penalized RCS"), lwd=2, col=c("black","blue","green"))
+
+# train %>%
+#   mutate(prob = ifelse(PFA == TRUE, 1, 0)) %>%
+#   ggplot(aes(Elevation, prob)) +
+#   geom_point(alpha = 0.2) +
+#   geom_smooth(method = "glm", method.args = list(family = "binomial")) +
+#   labs(
+#     title = "Logistic Regression Model", 
+#     x = "Elevation, meters",
+#     y = "Probability of 'Potential' Frost Action (DFI > 250 F-days)"
+#   )
+```
+
+### Make spatial predictions
+```{r}
+Elevation_src <- raster('L:/NRCS/MLRAShared/Geodata/project_data/MUSum_30m_SSR2/DEM_30m_SSR2.tif')
+prism_ff <- raster('L:/NRCS/MLRAShared/Geodata/project_data/MUSum_PRISM/q90_freeze_index_F_800m.tif')
+mu <- try(readOGR(dsn='L:/NRCS/MLRAShared/CA630/Archived_OFFICIAL_DB/FG_CA630_GIS_2018_0818_TKK.gdb',
+layer='ca630_b', stringsAsFactors = FALSE))
+
+mu <- spTransform(mu, CRS(proj4string(Elevation_src)))
+stations.t <- spTransform(stations.sub, CRS(proj4string((Elevation_src))))
+mlras_t <- spTransform(mlras, CRS(proj4string(Elevation_src)))
+prism_ff <- projectRaster(prism_ff, Elevation_src)
+Elevation_resamp <- resample(Elevation_src, prism_ff)
+Elevation_crop <- crop(Elevation_resamp, extent(stations.t))
+names(Elevation_crop) <- "Elevation"
+
+PFA_pred <- raster::predict(model=m1, object=Elevation_crop, type="fitted")
+PFA_unpred <- 1 - PFA_pred
+
+PFA_pred_rcs <- raster::predict(model=m2, object=Elevation_crop, type="fitted")
+PFA_unpred_rcs <- 1 - PFA_pred_rcs
+
+PFA_predictions <- stack(PFA_pred, PFA_pred_rcs)
+names(PFA_predictions) <- c("Linear", "Restricted Cubic Spline")
+p <- levelplot(PFA_predictions)
+p <- p + layer(sp.lines(mu, lwd=1, col="white"))
+plot(p)
+
+sp.points(stations.t, cex=0.5, pch=3)
+
+PFA_entropy <- -1 * ((PFA_pred * log(PFA_pred, base = 2)) + 
+                       (PFA_unpred * log(PFA_unpred, base = 2)))
+PFA_entropy_rcs <- -1 * ((PFA_pred_rcs * log(PFA_pred_rcs, base = 2)) + 
+                           (PFA_unpred_rcs * log(PFA_unpred_rcs, base = 2)))
+
+PFA_entropy <- stack(PFA_entropy, PFA_entropy_rcs)
+names(PFA_entropy) <- c("Linear", "Restricted Cubic Spline")
+p <- levelplot(PFA_entropy)
+p <- p + layer(sp.lines(mu, lwd=1, col="white"))
+plot(p)
+```

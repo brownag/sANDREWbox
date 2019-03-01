@@ -54,7 +54,7 @@ if(!file.exists('cached-data.Rda')) {
 # quick map
 par(mar=c(1,1,1,1))
 map('county', 'ca')
-points(stations, col='red', pch=3, cex=0.5)
+plot(stations, add=T, col='red', pch=3, cex=0.5)
 ```
 
 ```{r}
@@ -150,7 +150,7 @@ frostFreePeriod <- function(d, minDays=165, ...) {
   return(fl) 
 }
 
-FreezingIndex <- function(d, frostTemp, p, ...) {
+FreezeDegreeDays <- function(d, frostTemp) {
   d.y <- ddply(d, 'year', function(i) { 
     a.y <- alignAlternateYear(i$datetime, i$value)
     a.y <- a.y - frostTemp #calculate offset from "frost temp" (0 deg C or 32 deg F)
@@ -161,18 +161,20 @@ FreezingIndex <- function(d, frostTemp, p, ...) {
 
 
 DesignFreezingIndex <- function(d, frostTemp, p, ...) {
-  d.y <- ddply(d, 'year', function(i) { 
-    a.y <- alignDOY(i$datetime, i$value)
-    ffp <- frostFreePeriod(i)
-    a.y <- a.y - frostTemp #calculate offset from "frost temp" (0 deg C or 32 deg F)
-    a.y[a.y > 0] <- 0 #all positive values (greater than frost temp) set to zero
-    a.y <- -a.y #invert negative values
-    if(!is.null(ffp))
-      return(sum(a.y, na.rm=T))
-      #return(sum(a.y[-(ffp$lastSpring:ffp$firstFall)], na.rm=T)) # annual sum DURING FFP; any non-zero value corresponds to accumulated degree days below zero
-    else 
-      return(NA) #if we can't determine the frost free period, there probably isnt enough data for frost action for that year
-  })
+  d.y <- ddply(d, 'year', 
+               function(i) { 
+                  a.y <- alignDOY(i$datetime, i$value)
+                  ffp <- frostFreePeriod(i)
+                  a.y[a.y == -9999] <- 0 #nodata stored as -9999
+                  a.y[a.y > frostTemp] <- frostTemp #all positive values (greater than frost temp) set to zero
+                  a.y <- a.y - frostTemp #calculate offset from "frost temp" (0 deg C or 32 deg F)
+                  a.y <- -a.y #invert negative values
+                  if(!is.null(ffp))
+                    return(sum(a.y, na.rm=T))
+                    #return(sum(a.y[-(ffp$lastSpring:ffp$firstFall)], na.rm=T)) # annual sum DURING FFP; any non-zero value corresponds to accumulated degree days below zero
+                  else 
+                    return(NA) #if we can't determine the frost free period, there probably isnt enough data for frost action for that year
+                })
   n.yrs <- nrow(d.y)
   q <- quantile(d.y$V1, probs=p, na.rm=T)[1]
   if(sum(!is.na(d.y$V1)) < 10 | q < 10)
@@ -180,7 +182,8 @@ DesignFreezingIndex <- function(d, frostTemp, p, ...) {
   return(q)
 }
 
-test <- dlply(x, '.id', .fun=FreezingIndex, .progress = 'text', frostTemp=32, p = 0.9)
+#test <- ddply(x, '.id', .fun=function(xi) { ddply(xi, 'year', .fun=function(xd) { alignDOY(xd$datetime, xd$value)-32 } ) })
+#
 
 # calculate the design freezing index for each station*year combination
 # 
@@ -193,7 +196,7 @@ stations$dfi90 <- ldply(stations$STA, .fun = function(s) {
   return(data.frame(dfi90=as.numeric(x.dfi.nona[[s]])))
 })[,1]
 
-plot(sort(stations$dfi90), ylab="Design Freezing Index for CA CDEC Stations", xlab="Station")
+plot(sort(stations$dfi90), ylab="Design Freezing Index (F-days) for CA CDEC Stations", xlab="Station")
 abline(h=250, lwd=2, col="red")
 
 # FUNCTION TO REMOVE NA's IN sp DataFrame OBJECT
@@ -231,6 +234,12 @@ sp.na.omit <- function(x, margin=1) {
 elevation <- raster('L:/NRCS/MLRAShared/Geodata/project_data/MUSum_30m_SSR2/DEM_30m_SSR2.tif') #30m RO2 DEM
 names(elevation) <- c("Elevation")
 pctrain <- raster('L:/NRCS/MLRAShared/Geodata/project_data/MUSum_PRISM/rain_fraction_mean_800m.tif')
+maat <- raster('L:/NRCS/MLRAShared/Geodata/project_data/MUSum_PRISM/final_MAAT_800m.tif')
+dem_10m <- raster('L:/NRCS/MLRAShared/Geodata/project_data/MUSum_10m_SSR2/SSR2_DEM10m_AEA.tif')
+
+#elevation attribute in stations CSV matches extracted values from DEM 1:1
+#plot(stations$Elevation~extract(dem_10m, stations))
+#abline(0,1)
 
 # convert station point locations to CRS of elevation DEM and extract the DEM value to replace the file value
 stations <- spTransform(stations, CRS(proj4string(elevation)))
@@ -243,20 +252,47 @@ stations$pctrain <- extract(pctrain, stations)
 #subset the stations dataframe to include just the tabular data neeeded for model, plus spatial reference from original object
 stations.sub <- stations[,c("dfi90","Elevation","pctrain")]#sp.na.omit(stations[,c("dfi90","Elevation")])#,"beamrad")])
 
-mu <- try(readOGR(dsn='L:/NRCS/MLRAShared/CA630/Archived_OFFICIAL_DB/FG_CA630_OFFICIAL_2018_0103_AGB.gdb', 
+
+mu <- try(readOGR(dsn='L:/NRCS/MLRAShared/CA630/Archived_OFFICIAL_DB/FG_CA630_GIS_2018_0818_TKK.gdb',
 layer='ca630_b', stringsAsFactors = FALSE))
 
-#visual check using cubed elevation as predictor to attempt to linearize 
 plot(dfi90~Elevation,data=stations.sub)
 m <- lm(dfi90~Elevation, data=stations.sub)
 abline(m)
 abline(h=250)
 summary(m) #pretty obvious that these outliers have to be sorted out
 
+#stations.sub <- stations.sub[-which(stations.sub$dfi90 > 2*stations.sub$Elevation),]
+train <- data.frame(ID=1:nrow(stations.sub))
+train$has.frost.action <- stations.sub$dfi90 > 250
+train$Elevation <- stations.sub$Elevation
+train$y <- coordinates(stations.sub)[,2]
+m2 <- glm(has.frost.action ~ rcs(Elevation), data=train, family="binomial")
+anova(m2)
+library(dplyr)
+library(ggplot2)
+train %>%
+  mutate(prob = ifelse(has.frost.action == TRUE, 1, 0)) %>%
+  ggplot(aes(Elevation, prob)) +
+  geom_point(alpha = 0.2) +
+  geom_smooth(method = "glm", method.args = list(family = "binomial")) +
+  labs(
+    title = "Logistic Regression Model", 
+    x = "Elevation, meters",
+    y = "Probability of Potential Frost Action (i.e. DFI > 250)"
+    )
+
+library(mgcv)
+gam.model <- gam(has.frost.action ~ s(Elevation), data=train, family="binomial")
+summary(gam.model)
+probabilities <- gam.model %>% predict(data.frame(Elevation=1:3500), type="response")
+plot(probabilities, ylim=c(0,1), ylab="Probability of DFI exceeding 250 F days & Shannon Entropy", xlab="Elevation, m")
+lines(ldply(split(data.frame(n=probabilities, p=1-probabilities), 1:nrow(probabilities)), .fun=aqp::shannonEntropy)[,2], add=T, col="RED")
+abline(h=0.75)
+
 #this is a somewhat arbitrary heuristic that seems to get the outlier stations out of the analysis
 # need to see if that is a data error or there is something else influencing the obs other than elevation\
-
-stations.sub <- stations.sub[-which(stations.sub$dfi90 > 2*stations.sub$Elevation),]
+#stations.sub <- stations.sub[-which(stations.sub$dfi90 > 2*stations.sub$Elevation),]
 stations.sub <- sp.na.omit(stations.sub)
 
 gs1 <- gstat(formula = dfi90 ~ Elevation, data = stations.sub) 
@@ -265,12 +301,15 @@ mu <- spTransform(mu, CRS(proj4string(elevation)))
 rs800 <- raster(extent(elevation), res=800, crs=CRS(proj4string(elevation)))
 predictors <-  resample(elevation, rs800)
 names(predictors) <- c("Elevation")
+stations$x <- coordinates(stations)[,1]
+stations$y <- coordinates(stations)[,2]
 
 fa_pred_F <- interpolate(predictors, gs1, xyOnly=FALSE, na.rm=T, ext=extent(stations.sub))
 fa_pred_C <- fa_pred_F*5/9 #convert to centigrade degree days
-plot(fa_pred_C)
+plot(fa_pred_C > (250*5/9))
 plot(mu, add=T)
 points(stations, cex=0.5, col="red", add=T)
+
 
 fa_pred_C_rs800 <- raster(extent(fa_pred_C), res=800, crs=CRS(proj4string(fa_pred_C))) 
 fa_pred_C_rs800 <-  resample(fa_pred_C, fa_pred_C_rs800) #resample to 800m resolution, to match PRISM
