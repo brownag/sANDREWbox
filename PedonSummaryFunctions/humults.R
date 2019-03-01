@@ -3,9 +3,9 @@ library(aqp)
 library(rgdal)
 library(raster)
 
-source('PedonSummaryFunctions/pedon_summary_functions.R')
+source('pedon_summary_functions.R')
 
-f <- fetchKSSL(mlra = '22A')
+f <- fetchKSSL(series = 'Sites')#mlra = '22A')
 coordinates(f) <- ~ x + y
 proj4string(f) <- "+proj=longlat +datum=WGS84"
 
@@ -21,8 +21,8 @@ hasHumultCriteria <- function(x) {
   b <- getArgillicBounds(x)
   
   ## 2) intersect horizon(s) in argillic upper 15cm, AND ultisol BS depth
-  uarg.idx <- intersectLabHorizon(x, b$ubound+15) #upper argillic
-  larg.idx <- intersectLabHorizon(x, min(b$ubound+125, 180, estimateSoilDepth(x)-1))
+  uarg.idx <- intersectLabHorizon(x, b$ubound + 15) #upper argillic
+  larg.idx <- intersectLabHorizon(x, min(b$ubound + 125, 180, estimateSoilDepth(x)-1))
   
   ## Criterion #0: its an ultisol
   criterion_0 <- (horizons(x)[x$labsampnum %in% larg.idx,]$bs82 < 35)
@@ -36,9 +36,9 @@ hasHumultCriteria <- function(x) {
     criterion_1 <- NA
   
   #Criterion #2: organic carbon (kg/m^2) in upper meter of mineral soil
-  carbon <- x$estimated_oc/100 # kg OC/kg soil
-  db <- x$db_13b*1000 # kg soil/m^3 soil
-  thicknz <- (x$hzn_bot-x$hzn_top)/100 # meters (thickness)
+  carbon <- x$estimated_oc / 100 # kg OC/kg soil
+  db <- x$db_13b * 1000 # kg soil/m^3 soil
+  thicknz <- (x$hzn_bot - x$hzn_top) / 100 # meters (thickness)
   thickcm <- cumsum(thicknz)
   too.deep.idx <- which(thickcm >= 1)[1]
   

@@ -14,7 +14,7 @@ isOrganicHorizon <- function(hzname) {
   return(grepl(x=hzname,"O")) #TODO: can use OSM definition if organic matter % is known from lab data
 }
 
-#' getClayIncrease
+#' rease
 #'
 #' @param p - "profile" element of SoilProfileCollection
 #'
@@ -22,13 +22,13 @@ isOrganicHorizon <- function(hzname) {
 #' @export
 #'
 #' @examples
-getClayIncrease = function(p) {
+getClayIncrease = function(p, name="hzname") {
   phz=horizons(p)
   if(nrow(phz) > 1) {
     #print(nrow(phz))
     foo <- rep(NA,nrow(phz))
     for(h in 2:nrow(phz)) {
-      if(!isOrganicHorizon(phz[h-1,]$hzname))
+      if(!isOrganicHorizon(phz[h-1,name]))
         foo[h] <- phz[h,]$clay - phz[h-1,]$clay
       else
         foo[h] <- NA
@@ -162,7 +162,7 @@ getClayReqForArgillic <- function(eluvial_clay_content) {
   }
 }
 
-getArgillicBounds <- function(p) {
+getArgillicBounds <- function(p, ...) {
   phz = horizons(p)
   ci <- getClayIncrease(p)
   bounds = c(-Inf,Inf)
@@ -204,8 +204,8 @@ getArgillicBounds <- function(p) {
   return(data.frame(ubound=bounds[1],lbound=bounds[2]))
 }
 
-estimatePSCS = function(p, tax_order_field="tax_order") {
-  soildepth <- estimateSoilDepth(p)
+estimatePSCS = function(p, tax_order_field="tax_order", ...) {
+  soildepth <- estimateSoilDepth(p, ...)
   
   #Parts D (argillic starts >100cm  depth) and F (all other mineral soils)
   default_t = 25
@@ -536,10 +536,15 @@ getHorizons50to100cm <- function(p) {
 }
 
 getPSCS <- function(p, attr, dtype='pedon') {
-  pscs <- estimatePSCS(p, tax_order_field = "taxorder")
-  iid.col <- "phiid"
+  pscs <- c(NA, NA)
+  if(dtype == "lab") {
+    pscs <- estimatePSCS(p, tax_order_field = "taxorder", name="hzn_desgn", top="hzn_top", bottom="hzn_bot")
+  } else {
+    pscs <- estimatePSCS(p, tax_order_field = "taxorder")
+  }
   if(dtype == "pedon") {
     hz.idx <- intersectHorizon(p, z1=pscs[1], z2=pscs[2])
+    iid.col <- "phiid"
   } else if(dtype == "lab") {
     hz.idx <- intersectLabHorizon(p, z1=pscs[1], z2=pscs[2])
     iid.col <- "labsampnum"
@@ -553,8 +558,26 @@ getPSCS <- function(p, attr, dtype='pedon') {
   return(weighted.mean(df$atr, df$weight))
 }
 
+getCEC7ActivityClass <- function(cec7_cly_ratio) {
+  buff <- rep("superactive", length(cec7_cly_ratio))
+  buff[is.nan(cec7_cly_ratio) | is.na(cec7_cly_ratio)] <- NaN
+  buff[cec7_cly_ratio < 0.6] <- "active"
+  buff[cec7_cly_ratio < 0.4] <- "semiactive"
+  buff[cec7_cly_ratio < 0.24] <- "subactive"
+  return(buff)
+}
+
+
 getPSCSclay <- function(p, ...) {
   return(getPSCS(p, 'clay', ...))
+}
+
+getPSCScec7 <- function(p, ...) {
+  return(getPSCS(p, 'clay', ...))
+}
+
+getPSCSactivityratio <- function(p, ...) {
+  return(getPSCS(p, 'cec7_cly', ...))
 }
 
 getPSCSfrags <- function(p, ...) {

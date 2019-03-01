@@ -1,0 +1,617 @@
+---
+title: "Loafercreek - pedon summary function demo"
+author: "Andrew Brown"
+output:
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+      number_sections: true
+---
+
+## Loafercreek (and others)
+
+The Loafercreek series (_fine-loamy, mixed, superactive, thermic Ultic Haploxeralfs_) is comprised of soils on foothills underlain by vertically-bedded metavolcanic rock. They are moderately deep (50 to 100cm) to a paralithic contact. _[expand on mineralogy and variability within metamorphic belt?]_
+
+The Loafercreek series was established in Butte county (_CA612_) and now is mapped in Calaveras and Tuolumne (_CA630_) as well as small portions of Mariposa and Stanislaus Counties (_CA630_ join with _CA649_ and _CA644_).
+
+Areas of soils conceptually related to Loafercreek have been mapped primarily as Auburn soils throughout the Sierra Nevada Foothills. 
+
+ * These Auburn soils no longer fall within a single family (12th edition taxonomy) or within a single depth class (components span shallow to moderately deep, likely with deeper inclusions). 
+
+ * Auburn "series" was constrained to shallow soils after the _Ruptic-Lithic_ subgroup was removed from the _Xerochrepts_ after the 8th edition of the _Keys to Soil Taxonomy_.
+
+ * Auburn  the  _series_ refers only to the soils that are shallow to a lithic contact, and without a textural B horizon (_loamy, mixed, superactive, thermic Lithic Haploxerepts_). 
+
+In this series of demos, we are going to use R-based pedon summaries to explore properties of the Loafercreek soils found during the soil survey inventory in _CA630_. An understanding of the _range in characteristics_ (RIC) of Loafercreek and associated soils will facilitate correlation of modern soil series concepts during update work for adjacent survey areas.
+
+### Load the data
+
+To get the data out of the complex structures found in databases and into a _still-complex-but-R-usable_ format, we use the library `soilDB`. 
+
+When loading `soilDB` we load the dependency `aqp` which gives us the basic data structure we use to hold pedon data (the `SoilProfileCollection` object).
+
+For review: NCSS-Tech Stats for Soil Survey - Chapter 2 - Lessons on Data Types
+ * [R Objects and Data Types](http://ncss-tech.github.io/stats_for_soil_survey/chapters/2_data/2a_appendix_data_types.html)
+ * [Tabular Soil Data](http://ncss-tech.github.io/stats_for_soil_survey/chapters/2_data/2a_tabular_data.html)
+
+#### Create a SoilProfileCollection using `fetchOSD()`
+
+Here is an example showing a `SoilProfileCollection` created using `soilDB` function `fetchOSD()`. 
+
+A list of soil series that are geographically or conceptually associated with metavolcanic rocks in the Sierra Nevada Foothills is supplied.
+
+```{r}
+library(soilDB)
+series.names <- c("Argonaut", "Auburn", "Bonanza", "Dunstone", "Exchequer", "Gopheridge", "Jasperpeak", "Loafercreek", "Motherlode", "Sobrante")
+
+osds <- fetchOSD(soils = series.names, extended = TRUE)
+
+plot(osds$SPC)
+```
+
+Deeper soils on metavolcanic parent materials in this climate (_thermic_, _typic xeric_) typically have a pedogenic clay increase (_argillic horizon_). Due to the quantity of mafic minerals in the parent rock, the soils often weather to be quite red; with a substantial amount of pedogenic iron (_dithionite-citrate extractable_). 
+
+In CA630, the shallow soils with argillic horizons are the Bonanza and Dunstone series. Fine PSC soils are the Argonaut series. Skeletal PSC soils are Jasperpeak (shallow) and Gopheridge (moderately deep). Soils without a bedrock restriction are called Motherlode.
+
+#### Loading a dataset: `soilDB::loafercreek`
+
+One of the built-in datasets provided by `soilDB` is `loafercreek`. 
+
+The `sharpshootR` library has some great functions for summarizing pedon data. Let's load `sharpshootR` and the `loafercreek` `SoilProfileCollection`.
+
+```{r setup}
+library(sharpshootR)
+
+data("loafercreek")
+```
+
+### The `SoilProfileCollection` Object
+
+The `loafercreek` dataset we just loaded is a `SoilProfileCollection` (SPC) object. A SPC is a multipart (S4) R object that contains paired site and horizon-level data for soil profile (pedon) observations. 
+
+A SPC contains site (`spc@site`) and horizon (`spc@horizon`) slots, which are each comprised of a single `data.frame`. They should be accessed either by using `horizons(spc)` and `site(spc)` or by using square bracket notation.
+
+ * [Introduction to SoilProfileCollection Objects](http://ncss-tech.github.io/AQP/aqp/aqp-intro.html)
+
+Critical to the analysis of soils data, an SPC can be elevated like any other `data.frame` to an object of type `SpatialPoints*`. The (`spc@sp`) slot contains spatial data and coordinate reference information. Promoting to spatial should be done using `coordinates(spc) ~  x + y`, where x and y refer to coordinates in the `site` table in the desired coordinate reference system (CRS). The `proj4string()` will also need to be set for home-made SPCs where CRS info is not included or ambiguous.
+
+#### Let's check out `loafercreek`!
+
+SPC data (sites, horizons) are accessed in ways similar to a base R `data.frame`. Despite the similarities, remember that most R functions are not "aware" of SPCs and will often fail in unsual ways when supplied with one as an argument.
+
+Here, we use the bracket notation to get the first 5 profiles.
+```{r}
+# plot a few (5) profiles
+plot(loafercreek[1:5,])
+```
+
+We will take a look at the dimensionality of the main parts of the `loafercreek` SPC.
+
+__Number of sites (profiles) in `loafercreek` site `data.frame`__
+```{r}
+nrow(site(loafercreek))
+```
+
+__Number of horizons (layers) in `loafercreek` 'horizons' `data.frame`__
+```{r}
+nrow(horizons(loafercreek))
+```
+
+__Maximum clay content observed out of _all_ profiles__
+```{r}
+max(horizons(loafercreek)$clay, na.rm = TRUE)
+```
+
+You can see from the ratio of rows in `horizons` to rows in `site`, there is a _many:one_ relationship. 
+
+_Many:one_ is the rule, not the exception, for many properties we describe in soil survey (geomorphology, color, structure, rock fragments etc) and encode in soil data structures. 
+
+The SPC data structure maintains a link between site and horizon data (or at least it attempts to. :) ) and provides a mechanism for consistent application of pedometric functions to soil data.
+
+##### Comments on the SPC representation of soil data
+
+Many-to-one "flattening" used in SPCs created from hierarchical databases (like SSURGO, NASIS, KSSL) often makes use of RV indicator fields or performs other compression/concatenation of information within child tables. 
+
+This is to provide a single site or horizon- level value that summarizes many child records. 
+
+If data are populated incorrectly (particularly in NASIS applications), flattening using the RV indicator, for example, may lead to duplication of records. 
+
+##### Analyses made possible with pedon summary functions
+
+Many analyses require site-level variables based on an aggregation or summary of a pedon's horizon data. 
+
+You would like to apply that same summary calculation to each profile in your dataset. 
+
+For instance, you might be interested in:
+  + calculating weighted-average field-texture clay content in the particle size control section
+  + fine-clay ratio in the first "illuvial" horizon
+  + whole-profile available water capacity
+
+`soilDB` provides a variety of ways to import soil data into SPCs, or you can create your own from scratch by reading site/horizon data from flat (e.g. CSV) files. 
+
+We looked at `fetchOSD()` for getting profile information from series type locations, but there also are `fetchNASIS()`, `fetchKSSL()` and `fetchSDA_component()` available for pedon, laboratory and component data respectively. 
+
+The packages `aqp` and `sharpshootR` provide a wide array of functions (and more all the time) for interacting with and summarizing the contents of SPCs.
+
+### Using `profileApply()`
+
+The `aqp` function `profileApply()` allows us to evaluate a user-specified function on each profile in a SPC. 
+
+`profileApply()` returns a `list` object containing results of each function call. The number of results returned is equal to the number of sites in the SPC. 
+
+Here, we use a `sharpshootR` function called `estimateSoilDepth()` to demonstrate how `profileApply()` works.
+
+#### Example: estimateSoilDepth()
+
+`estimateSoilDepth()` uses a REGular EXpression (regex pattern) to match horizon designations, and returns the top depth of the first horizon matching the pattern. 
+The default settings are designed for bedrock restrictions. The pattern matches horizon designations Cr, R or Cd.
+ 
+```{r}
+depth.to.contact <- profileApply(loafercreek, estimateSoilDepth)
+```
+
+Lets see how our depth to contact data look using a density plot.
+```{r}
+#look at a density (frequency) plot; depth on x axis
+plot(density(depth.to.contact, na.rm = TRUE))
+```
+
+Let's summarize the same data using _quantiles_.
+```{r}
+quantile(depth.to.contact, probs=c(0,0.01,0.05,0.25,0.5,0.75,0.95,0.99,1), na.rm = TRUE)
+```
+
+Quantiles are values occuring within the range [_min_, _max_] of a particular variable. A quantile divides your data based the proportion of values more or less extreme. 
+
+For example, the median, is the 0.50 quantile (or 50th percentile). Therefore, it is greater in magnitude than half of the data and lower than half the data. 
+
+The 99th percentile corresponding to a 1 in 100 chance of observing a value more extreme (higher in value). That is, 99% of the data are lower in magnitude than the 0.99 quantile. Similarly, the 1st quantile is lower than 99% of the data.
+
+You can estimate different `quantile()` function by chaging the default argument `probs`. `probs` takes a numeric vector of quantiles/probabilities. 
+
+There are several methods for calculating quantiles depending on the variable/analysis of interest (see the `type` argument) [More about quantiles](), distributional assumptions and methods for using quantile-based summaries for soils data.
+
+### Checking "populated" versus "calculated"
+
+One of the benefits of using R to summarize soil data is that it allows you to develop various check routines that ensure the values populated in the database are consistent with one another.
+
+As an example of how you might do this, we will compare the calculated values for depth to contact to those "populated" (i.e. the ones preloaded in `loafercreek` dataset). 
+
+If the populated and calculated match, they will plot on the 1:1 line. 
+
+```{r}
+#plot difference "populated v.s. calculated"
+plot(loafercreek$bedrckdepth ~ depth.to.contact, xlim=c(0,200), ylim=c(0,200))
+abline(0, 1)
+```
+Some plot off the 1:1 line. Let's take the calculated values.
+
+### Creating and editing variables in a SoilProfileCollection
+
+The variable we created above `depth.to.contact` is a list containing numeric depths (or NA) to a bedrock contact, calculated using `profileApply()` on `loafercreek`. 
+
+The `loafercreek` dataset already has a variable called `bedrckdepth` in the `site` table. We want to replace
+
+Since `length(depth.to.contact) == nrow(site(loafercreek))` the SPC is smart enough to know we are editing
+
+```{r}
+loafercreek$bedrckdepth <- depth.to.contact
+```
+
+Based on the above, we will replace the prior values with the new calculated values.
+
+#### Modifying default arguments to `estimateSoilDepth()`
+By changing the default settings you can calculate other "depth-to-X" type properties. You could add duripan or petrocalcic if that was relevant to your data. It doesn't have to be a 'root-restriction' depth, either. 
+
+Here are some other examples that aren't applicable to `loafercreek`:
+  + depth to carbonates - match horizon with k or kk subscript - `estimateSoilDepth(pedon, p = 'k?k')`
+  + depth to gley (~2 chroma dominant color) - `estimateSoilDepth(pedon, p = 'g')`
+
+[More about regex patterns](https://www.regular-expressions.info/)
+
+#### Troubleshooting `profileApply()`
+
+Before writing a `profileApply()` based routine, try your function on a few single profiles where you know the expected result beforehand. 
+
+Do this to make sure you know what your output will look like for the whole collection, as well as to ensure the function works as expected.
+
+```{r}
+just.one <- loafercreek[1]
+estimateSoilDepth(just.one)
+```
+From this output (a single number) we can expect a `list` of numeric values when `estimateSoilDepth()` is called via `profileApply()`.
+
+#### Higher-level (wrapper) functions
+
+Some functions are 'vectorized' or otherwise are prepared to handle the iteration over multiple elements in an object on their own.
+
+An example from the `aqp` package is `getSoilDepthClass()`.
+
+```{r}
+sdc <- getSoilDepthClass(loafercreek)
+```
+
+Internally it makes use of `profileApply()` and `estimateSoilDepth()`. It calculates depth class and return a `data.frame` (1 row per site) with several different representations of soil depth.
+ * numeric depth (e.g. top depth of restriction)
+ * presence/absence (TRUE/FALSE) of contact by class
+ * categorical factor of depth class
+ 
+ You can define your own depth class names and cutoff depths using the `depth.classes` argument.
+
+
+Look at the first few records to see data.frame format
+```{r}
+head(sdc, 3)
+```
+
+Let's look at the breakdown of depth class in `loafercreek`. The variable `depth.class` in `data.frame` `sdc` is a `factor`, so `summary()` counts the number of observations in each factor level (depth class). 
+
+We calculate the number of pedon observations (rows in `site` `n.obs`) and combine that total with the summary output to calculate proportions.
+
+```{r}
+n.obs <- nrow(site(loafercreek))
+names(n.obs) <- "total"
+loafercreek.depth.summary <- summary(sdc$depth.class)
+```
+
+__List with number of observations per class, plus total in own column__
+```{r}
+c(loafercreek.depth.summary, n.obs)
+```
+
+__List with percentages by class__
+```{r}
+round(c(loafercreek.depth.summary / n.obs) * 100, digits = 1)
+```
+
+The density plot we made with `estimateSoilDepth()` and the categorical summary using `getSoilDepthClass()` show, as expected, that the soils are mostly moderately deep (50 - 100cm), with just extrema outside that range.
+
+#### Defining your own functions
+
+You can also define your own functions for use with `profileApply()`.
+
+The basic format for defining an R function is:
+```{r}
+function.name <- function(input1, input2) {
+  #do something with the inputs
+  output <- input1 + input2
+  
+  #return something
+  return(output)
+}
+```
+
+```{r echo=F}
+univar.hz <- function(spc, attr, fun, na.rm = TRUE, ...) {
+  d <- horizons(spc)[[attr]]
+  if(na.rm)
+    d <- d[!is.na(d)]
+  if(!length(d)) 
+    return(NA)
+  rez <- unlist(do.call(fun, list(d), ...))
+  return(rez)
+}
+```
+
+This function defined below calculates the profile maximum clay content.
+
+When called via `profileApply()`, the argument `p` for the function `profileMaxClay()` is an _individual pedon_. The apply function iterates over the `loafercreek` profiles one-by-one, passing them to the function for evaluation.
+
+```{r}
+profileMaxClay <- function(p, ...) {
+  return(univar.hz(p, attr = 'clay', fun=max, ...))
+}
+```
+The function applies the function `max` to the attribute `clay` in a profile `p`. It uses a generic helper function to do this. Any arguments supplied to `profileApply()` will be passed through `profileMaxClay()` to the call to `fun` via `...`. We breakdown the parts of `univar.hz()` below. 
+
+Let's apply `profileMaxClay()` to all profiles in `loafercreek` and look at the distribution of the results.
+
+```{r}
+loafercreek$maxclay <- profileApply(loafercreek, profileMaxClay)
+
+plot(density(loafercreek$maxclay, na.rm=T))
+```
+
+`univar.hz()` is a generic function used for accessing a horizon level variable by name, USING that variable as input to the function specified, and returning the result. 
+
+These are the `univar.hz()` arguments:
+  + `spc` - an SPC; which generally should contain a single profile (not enforced)
+  + `attr` - a column name in `horizons(spc)`; e.g. 'clay'
+  + `fun` - an R function to be applied to `attr` in `spc`; e.g. `max` to compute the maximum value of a numeric vector
+  + `na.rm` - default is `TRUE`; to remove NA values from the list of inputs to `fun`
+  + `...` - any subsequent arguments are passed to `fun` (in addition to the `horizons(spc)[[attr]]` data)
+ 
+```{r}
+univar.hz <- function(spc, attr, fun, na.rm = TRUE, ...) {
+  #'attr' contains a column name in horizons data frame
+  d <- horizons(spc)[[attr]]
+  #remove NAs
+  if(na.rm)
+    d <- d[!is.na(d)]
+  #if input data empty after removing NA, return NA without calling function
+  #TODO: warning? pedonID list via profileApply()?
+  if(!length(d)) 
+    return(NA)
+  #pass the data to 'fun' as a list along with any other arguments
+  rez <- unlist(do.call(fun, list(d), ...))
+  #return the result
+  return(rez)
+}
+```
+
+A generic function is written so that the same underlying "machinery" can be used to create multiple related high-level "convenience" functions. 
+
+Instead of rewriting the same type of code every time you define a function, using `univar.hz()` or other generics you can just change a few arguments to get brand new behavior. Given a template users can then rapidly develop new summaries to suit their needs. 
+
+##### __Exercise:__ design a function called `profileMostLimitingKsat()` using the functon `profileMaxClay()` defined above as a template. Then, use `soilDB` `fetchNASIS_components()` or `fetchSDA_components()` to create an SPC and calculate the "most limiting"" Ksat for all components (using `profileApply()`).
+ * What assumptions did you have to make to write your function? 
+ * How could your estimate of most limiting Ksat be improved?
+
+#### More complex analyses
+
+`soilDB`, `aqp` and `sharpshootR` provide a wide array of high and low-level functions that balance rapid application of common workflows with the needs of custom analyses. 
+
+`univar.hz()` is perhaps the simplest generic as it return a single result per pedon based on a single horizon level attribute (vector of values, 1 per horizon). It utilizes _all_ records for a _single_ specified variable, there is no mandatory subsetting of horizons within profiles before `fun` is evaluated. There are no limits on the data type of the variable being summarized, but it must exist in the `horizons` slot of the SPC under the specified name. 
+
+Several other generic functions, and suites of corresponding high-level wrapper functions, exist for more complex analyses. 
+
+Some of the analyses we support and continue to improve upon involve:
+ * processing multiple attributes within `site` and/or `horizons`
+ * depth-weighted averaging, horizon mixing, partial horizons
+ * application of taxonomic criteria
+ * imputation if missing data 
+
+#### Down the rabbit hole...
+
+`estimateSoilDepth()`, a function we used above, is a wrapper around a _different_, slightly more complicated generic function `bivar.hz.match.first()`. 
+
+The default settings for `estimateSoilDepth()` look in `hzname` for matching and return `hzdept` of the first match, but `bivar.hz.match.first()` has no defaults. `bivar.hz.match.first()` generic returns the first horizon value (for a specified variable `attr`), based on horizon values in `label` that match the specified pattern `pattern`. 
+
+##### bivar.hz.match*()
+
+Incidentally, `bivar.hz.match.first()` is a special case. ALL matching horizon values are returned by `bivar.hz.match()` whereas `bivar.hz.match.first()` obtains just the FIRST (shallowest) match. `bivar.hz.match.first()` uses `bivar.hz.match()` internally.
+
+The `bivar.hz.match*()` family of summary functions makes a "decision" about the horizon(s) to summarize based on pattern matching in the grouping variable. It returns the value of a _different_ variable from the horizon record(s) matched. 
+
+The generic functions have pretty specific purposes, and their names attempt to be connotative. `bivar` portion of the name refers to two variables (the `label` and the `value`) involved. `*.hz.*` tells you the function operates on the `horizons` slot of an SPC. `match` tells you that regular expressions are used to identify horizons of interest using a text-based (character string) variable as the label to match against.
+
+### Applying pedon summary functions
+
+We will see if two common indicators of landscape stability and pedogenic development (clay content, and redness) are related within the soils correlated to Loafercreek. Generally, these soils are quite red. But in areas with thicker colluvial material on the surface or due to variation within the parent rock, the colors range duller and browner. In this setting, a soil that is red close to the surface is likely to stay quite red with depth. We will therefore calculate the depth to 5YR (or 2.5YR) dry hue as a surrogate for profile "redness" with the expectation that this will capture our reddest soils.
+
+```{r}
+loafercreek$depth.to.5YR <- profileApply(loafercreek, estimateSoilDepth, name='d_hue', p='^5YR|^2.5YR', no.contact.depth=150, no.contact.assigned=NaN)
+
+plot(main="Distribution of depth to 5YR or 2.5YR dry hue in Loafercreek", 
+     density(loafercreek$depth.to.5YR, na.rm = T, from = 0, to = 100))
+```
+
+Interesting. There might be two clusters here? Or just noise? 
+
+We will split `loafercreek` into two separate SPCs and make profile plots for each. 
+
+```{r}
+sub1 <- subsetProfiles(loafercreek, s = 'depth.to.5YR > 40')
+plot(sub1)
+
+sub2 <- loafercreek[which(loafercreek$depth.to.5YR <= 40),]
+plot(sub2)
+```
+
+Note that two different, but equivalent, methods for subsetting the `loafercreek` SPC are used. For more on the specifics of working with SPCs, click here.
+
+It appears like there could be some differences in color distribution with depth in the two groups, but it may be hard to see in profile plots with so many profiles. 
+
+For the most part, the pedons shallower to 5YR are redder / higher chroma over all depths. 
+
+Lets see if that redness lines up with the profile `maxclay` we just calculated...
+
+#### Quantile based summaries of results
+
+We will use quantiles to summarize the `maxclay` variable we just created for each of the SPC subsets.
+
+__sub1: greater than 40cm to 5YR or 2.5YR __
+```{r}
+quantile(sub1$maxclay, na.rm = T, probs=c(0,0.05,0.25,0.5,0.75,0.95,1))
+```
+
+__sub2: less than or equal to 40cm to 5YR or 2.5YR__
+```{r}
+quantile(sub2$maxclay, na.rm = T, probs=c(0,0.05,0.25,0.5,0.75,0.95,1))
+```
+
+The two groups of profiles have similar textures for the lower quantiles (that is, the surface horizons of both groups are similar, with relatively coarser textures). 
+
+The medians differ by 5% and their 95th percentiles by nearly 15%. The soils with red colors closer to the surface have slightly higher max clay contents. 
+
+With these ranges, most of these pedons probably fall within the fine-loamy particle size family range and within the series concept, though individual pedon and horizon observations are extragrades from the series.
+
+#### Creating new site-level grouping variables
+
+Since the provisional separation using the 40cm depth to red hue seems to show distinct morphologies, we will make a new site-level grouping variable called `red.shallow` to portray pedon class membership with respect to this threshold. Further analysis will follow up on the differences between these two apparent groups.
+
+Here we look at the quantile distributions of the "depth to red color" data for the whole dataset. 
+```{r}
+summary(loafercreek$depth.to.5YR)
+```
+Note that the quantiles for the full dataset span the range of the two "modes" (bimodal distribution) we saw in the density plot. 
+
+`r sum(is.na(loafercreek$depth.to.5YR))` out of `r nrow(site(loafercreek))` pedons returned `NA`. 
+
+These `NA` pedons could comprised of two distinct, but related, cases we may not have planned for: 
+1. some pedons do not have 5YR/2.5YR hue at any depth
+2. some pedons do not have any color information at all
+
+The former case results from the `estimateSoilDepth()` arguments `no.contact.depth=150` and `no.contact.assigned=NA`. That is, when `estimateSoilDepth()` scans through horizons and top depth exceeds the user-defined `no.contact.depth`, or the profile ends, without matching the pattern, `NA` is returned. Depending on your goals, these arguments regularly have to be adjusted.
+
+In the latter case (all source colors were `NA`), the true state is unknowable without additional information from the site . We actually know that all of the `loafercreek` pedons have at least some dry color data, but that cannot _in general_ be assumed to be true, so it helps to know how to check.
+
+This code sets the `site` variable `red.shallow` to TRUE for all profiles where `loafercreek$depth.to.5YR` is less than or equal to 40 cm.
+
+```{r}
+loafercreek$red.shallow <- (loafercreek$depth.to.5YR <= 40)
+```
+
+Now look at the groups we calculated.
+```{r}
+summary(loafercreek$red.shallow)
+```
+
+You will notice that the `NA` values that we calculated for `depth.to.5YR` carry through into our new grouping variable. This is because in R, an inequality (e.g.`x <= y`) where one side is `NA` always evaluates as `NA`. Otherwise, an inequality involving two comparable objects will evaluate as `TRUE` or `FALSE`. 
+
+The `NA` values are actually a problem because SPCs and SPC-related functions require the grouping variable to have no `NA` for subsetting purposeses. 
+
+In this case, we want to treat the soils that don't have red colors at any depth (event not observed) differently from those that may not have color populated (event occurrence 'unknowable').
+
+We can easily check which pedons are have all `NA` for dry color using `profileApply()`. 
+
+Here we define an [anonymous function](https://lukesingham.com/anonymous-functions-in-r-python/) that takes the vector of values (dry hues for a particular pedon). It calls `is.na()` which returns a `logical` (TRUE/FALSE) vector the same length as the input vector, denoting whether the input element was `NA` or not. 
+
+The function `all()` only returns `TRUE` if all of the inputs are `TRUE` (in this case if all horizon dry hues in a pedon are `NA`). The function `any()` is also quite useful for similar checks.
+
+```{r}
+all.na  <- profileApply(loafercreek, function(p) { return(all(is.na(p$d_hue)))})
+head(all.na)
+```
+
+`which()` returns the numeric index / "row number" corresponding to the values in a `logical` vector that are `TRUE`. 
+
+```{r}
+all.na.idx <- which(all.na)
+head(all.na.idx)
+```
+
+##### __Exercise:__ create an SPC that is the subset of pedons in `loafercreek` that have _one or more_ `NA` for moist hue.
+
+If there were many pedons in the "no contact [with red hue]" class, it possibly would be its own group. For this demo we will include them with the >40cm (`FALSE`) group. 
+
+To find the `NA` records we need to change to `FALSE`, we will need find all pedons where `is.na(red.shallow) == TRUE` and `all.na == FALSE`. 
+
+We need to incorporate _two_ logical vectors, so we will create a new `logical` index called `deep.brown.ones` that identifies the pedons we need to change, and then we will set those pedons to the desired value. 
+
+You can evaluate multiple logicals simultaneously using `&` (AND) and `|` (OR) operators. Invert logicals (i.e. convert true to false; false to true) using the `!` (NOT) operator. 
+
+```{r}
+# the deep brown ones are the pedons where red colors were not found and not all of the colors were NA
+deep.brown.ones <- (is.na(loafercreek$red.shallow) & !all.na)
+head(deep.brown.ones) #inspect. if red.shallow is NA but colors are populated, return TRUE
+```
+
+In this case, since we are changing an attribute for a subset of the pedons, we need to specify that we are accessing the `site` slot via `site(loafercreek)`. Otherwise the SPC does not know where to insert the new data. We need to specify our logical vector as the row index to the site  to ensure we only change the rows we want.
+
+This assignment case is further ambiguous because the length of the value we are assigning is 1 (`length(FALSE) == 1`), so that value will be applied to the `r sum(deep.brown.ones == TRUE)` pedons where `deep.brown.ones == TRUE`. Normally the SPC infers whether your are working with a site or horizon attribute by checking the length of the input. 
+
+To make this simple, we copy the data from `red.shallow` into a local variable called `foo`. We change the values at the indices specifdied by `deep.brown.ones` and insert the new data (note: `length(foo) == nrow(site(loafercreek))`)
+
+```{r}
+foo <- loafercreek$red.shallow
+foo[deep.brown.ones] <- FALSE
+loafercreek$red.shallow <- foo
+```
+
+Now look at the groups we calculated.
+```{r}
+summary(loafercreek$red.shallow)
+```
+
+The remaining `NA` values (and corresponding site/pedon data) need to be omitted when subsetting a SPC based on `red.shallow`. We will leave them in for now and filter them out as needed downstream. Including the 7.5YR or browner pedons with the `FALSE` set got an extra 21 observations into the analysis.
+
+
+#### Visualizing the color difference using `aggregateColor()`
+
+We can use the `aggregateColor()` function to summarize the colors in an SPC by horizon designation. It returns a two element list containing scaled and aggregate data. Scaled data (default) is a `list` of colors and their weights (proportion within the horizons of that designation). Aggregate data is a `data.frame` of weighted-mean colors for each horizon designation.
+
+`aggregateColorPlot()` is a special plotting function designed to use the results of `aggregateColor()`.
+
+```{r}
+aggregateColorPlot(aggregateColor(loafercreek))
+```
+Reviewing the proportions of color chips the full dataset, it appears 5YR is the second most common hue (after 7.5YR). 10YR hues basically only occur in the surface horizons or in lower gradtional horizons/bedrock.
+
+```{r}
+aggregateColorPlot(aggregateColor(sub1))
+```
+Both the full dataset and the first subset (greater than 40cm to 5YR or redder) have 7.5YR hue in the upper argillic (Bt1).
+
+```{r}
+aggregateColorPlot(aggregateColor(sub2))
+```
+In the subset of pedons less than 40cm to 5YR hues, the only 7.5YR chip in the Bt1 is 7.5YR 4/6 (i.e. `sub2` is on redder/higher chroma side).
+
+So, it looks like there is decent separation using a crisp threshold of 40 cm (depth to 5YR or redder). 
+
+#### Visualizing the clay difference 'slab-wise'
+
+The `slab()` function allows some of the between-pedon depth variation within a SPC to be smoothed out in the median estimate. This works by calculating quantiles across constant-depth bands of defined width. This allows you to approximate the central tendency and variance of arbitrary numeric soil properties over depth.
+
+```{r}
+#calculate slabs; NB. no NA allowed in grouping variable (red.shallow)
+loaf.slab <- slab(loafercreek[!is.na(loafercreek$red.shallow)], red.shallow ~ clay)
+
+#(excluding slabs with contributing fraction < 15%)
+loaf.slab2 <- loaf.slab[loaf.slab$contributing_fraction > 0.15,]
+```
+
+Load the `lattice` package, and create an XY plot of the slab-wise median and interquartile range as a function of depth.
+
+Use the same grouping variable you supplied to `slab()` to create separate plots for each group .
+
+```{r}
+library(lattice)
+#make lattice xy plot
+xyplot(top ~ p.q50 | red.shallow, data=loaf.slab2, 
+       main='Loafercreek - "shallow to 5YR hue" clay\n distribution with depth',
+       ylab='Depth',
+			 xlab='median bounded by 25th and 75th percentiles',
+			 lower=loaf.slab2$p.q25, upper=loaf.slab2$p.q75, 
+			 xlim=c(12, 50),
+			 ylim=c(100,-5),
+			 panel=panel.depth_function, 
+			 prepanel=prepanel.depth_function,
+			 cf=loaf.slab2$contributing_fraction,
+			 layout=c(2,1), scales=list(x=list(alternating=1))
+			 )
+```
+
+__Calculate the maximum clay content from the 1cm slab-wise medians__
+```{r}
+df <- aggregate(loaf.slab2$p.q50, by=list(loaf.slab2$red.shallow), FUN=max, na.rm = T)
+names(df) <- c("red.shallow","maxclay.q50")
+df
+```
+Almost a `r round(df[2,2] - df[1,2], 1)` clay difference in the estimated maxima using the slab-wise median (50th percentile). These median values are comparable to the values we calculated from the raw horizon data above. 
+
+So both methods we used to look at clay maximum there is a slight difference between the redness groups. There appears to be more variation within the 'shallow red' group. The variation is probably not pronounced enough to affect use and management enough to separate the groups into two series... unless, _perhaps we can find a geomorphic/taxonomic/spatial reason for why some soils are redder_? 
+
+</cliffhanger>
+
+### Future demos
+ + Particle size control section validation
+ + Texture and rock fragment validation
+ + Spatial comparisons of pedon observations
+ + Expanding the `loafercreek` dataset: Geographically associated soils
+ + Diagnostic horizon validation (dark surface epipedon, argillic horizon)
+ 
+
+```{r}
+#particle size control section depths and weighted-average calculation
+```
+
+```{r}
+#horizon-level validations and 'fine-tuning' your SPC objects
+```
+
+
+```{r}
+#do spatial example.. can we predict where the red/clayey ones are?
+```
+
+```{r}
+#bring in the shallow and skeletal and deep data from the Loafercreek mapunits 
+```
+
+```{r}
+#diagnostic horizon validation (dark surface, argillic)
+```
