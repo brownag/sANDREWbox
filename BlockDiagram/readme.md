@@ -3,6 +3,11 @@ title: "DEM to Block Diagram - Rayshader Demo"
 author: "Andrew Brown"
 date: "Last updated: March 12, 2019"
 ---
+<center>
+
+![LiDAR-derived (resampled to 5m x 5m resolution) 3D landscape with SSURGO MUSYM as thematic attribute. Table Mountain, Tuolumne County, California](sample.png "LiDAR-derived (resampled to 5m x 5m resolution) 3D landscape with SSURGO MUSYM as thematic attribute. Table Mountain, Tuolumne County, California"){width=600px}
+
+</center>
 
 # Get the script
 
