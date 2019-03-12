@@ -2,18 +2,9 @@
 title: "DEM to Block Diagram - Rayshader Demo"
 author: "Andrew Brown"
 date: "Last updated: March 12, 2019"
-output: 
-  html_document:
-    toc: true
-    toc_float: true
-    number_sections: true
 ---
 
 # Get the script
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
 
 This document explains how to use the `rayshader` R package to create 3-D thematic block diagrams from digital elevation models and a thematic shapefile.
 
