@@ -1,11 +1,11 @@
 ---
 title: "DEM to Block Diagram - Rayshader Demo"
 author: "Andrew Brown"
-date: "Last updated: March 12, 2019"
+date: "Last updated: April 5th, 2019"
 ---
 <center>
 
-![LiDAR-derived (resampled to 5m x 5m resolution) 3D landscape with SSURGO MUSYM as thematic attribute. Table Mountain, Tuolumne County, California](sample.png "LiDAR-derived (resampled to 5m x 5m resolution) 3D landscape with SSURGO MUSYM as thematic attribute. Table Mountain, Tuolumne County, California"){width=600px}
+![LiDAR-derived (resampled to 5m x 5m resolution) 3D landscape with SSURGO MUSYM as thematic attribute. Table Mountain, Tuolumne County, California](sample.png "LiDAR-derived (resampled to 5m x 5m resolution) 3D landscape with SSURGO MUSYM as thematic attribute. Table Mountain, Tuolumne County, California")
 
 </center>
 
@@ -19,11 +19,16 @@ Download the __R__ script here: [dem-to-block_diagram.R](dem-to-block_diagram.R)
 
 If you don't already have the necessary packages, install them:
 
-```{r, eval=F}
-install.packages('rayshader','rgl','raster','rgdal','imager','FedData','viridis')
+```{r eval=F}
+
+install.packages('rayshader','rgl','raster',
+                  'rgdal','imager',
+                  'FedData','viridis',
+                  'sf','fasterize')
 
 #note: FedData is only used for creating polygon from rectangular extent
 #note: viridis is only used to generate a colorblind friendly color scheme
+#note: sf is a dependency of fasterize, which is used to speed up conversion of thematic shapefile to raster
 ```
 
 # Setup
@@ -97,3 +102,9 @@ alt.cols <- col2rgb(first.colors[values(theme)])
 
 cols <- alt.cols
 ```
+
+## Changelog:
+
+ * _2019/03/12_ - initial commit
+ 
+ * _2019/04/05_ - replaced `raster::rasterize()` with `fasterize::fasterize()` for making thematic raster much faster

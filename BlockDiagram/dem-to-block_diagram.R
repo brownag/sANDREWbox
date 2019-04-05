@@ -1,5 +1,6 @@
 # dem-to-block_diagram.R
 # 03/11/2019
+# last revised: 04/05/2019
 # @author: andrew brown; 
 #          based on demo by dylan beaudette
 
@@ -10,6 +11,8 @@ library(rgdal)
 library(FedData)
 library(viridis)
 library(imager)
+library(sf)
+library(fasterize)
 
 ######
 ### SETUP
@@ -25,7 +28,7 @@ mu.col <- "MUSYM"
 
 ## 3. digital elevation model (TIFF, or other raster-compatible format) for a chunk of space
 #     e.g. pan to desired area in ArcMap, and Data > Export Data > By Data Frame
-elev <- raster('lidar_Tm_test_5m.tif')
+elev <- fasterize::raster('lidar_Tm_test_5m.tif')
 #elev <- raster('elev.tif')
 
 ## 4. OPTIONAL: resample raster input
@@ -64,7 +67,8 @@ thematic_shp$munum <- match(thematic_shp[[mu.col]], unique(thematic_shp[[mu.col]
 
 # produce raster
 thematic_shp <- spTransform(thematic_shp, CRS(proj4string(elev)))
-theme <- rasterize(x = thematic_shp, y = elev, 'munum')
+#theme <- rasterize(x = thematic_shp, y = elev, 'munum')
+theme <- fasterize(sf = st_as_sf(thematic_shp), raster = elev, field = 'munum')
 
 # inspect raster representation of theme musym
 plot(theme)
@@ -85,7 +89,6 @@ scl <- function(x) (x - min(na.omit(x))) / diff(range(na.omit(x)))
 # select some colors that ideally span the color ramps, get RGB
 cols <- col2rgb(rev(viridis(256))[scl(values(theme)) * 255 + 1])
 # comment this line out if you are setting colors manually with alt.colors
-
 
 # get the RGB channels and put them in the SGDF
 sgdf$red <- cols[1,]
@@ -127,7 +130,8 @@ elmat %>%
   #add_water(detect_water(elmat), color="desert") %>%
   add_shadow(raymat, max_darken = 0.4) %>%
   add_shadow(ambmat, max_darken = 0.4) %>%
-  plot_3d(elmat, zscale=0.9, fov=0, theta=30, zoom=0.75, phi=45, windowsize = c(1000,800), lineantialias = TRUE)
+  plot_3d(elmat, zscale=0.9, fov=0, theta=30, water = 0,
+          zoom=0.75, phi=45, windowsize = c(1000,800), lineantialias = TRUE)
 
 # take a static picture of the rgl window
 render_snapshot()
