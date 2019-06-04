@@ -1,0 +1,157 @@
+---
+title: "Rangeland Health EVAL - Soil Reference Description Generator"
+author: "Andrew Brown"
+output: html_document
+params:
+  ecositeid:
+    label: "Ecological Site ID:"
+    value: "R018XI163CA"
+    input: text
+  majorcompswitch:
+    label: "Major components only?"
+    value: TRUE
+  ignorecompname:
+    label: "Ignore component names:"
+    value: "Peters,Cometa,Rocklin,Sesame"
+    input: text
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library(knitr)
+library(aqp)
+library(soilDB)
+library(tidyverse)
+
+# logic for handling major component switc
+flag_majcmp <- 'Yes'
+if(!params$majorcompswitch)
+  flag_majcmp <- 'No' 
+
+to_ignore <- strsplit(params$ignorecompname, ",")
+if(!length(to_ignore))
+  to_ignore <- ''
+
+list_ecositeid <- unlist(strsplit(params$ecositeid, ","))
+```
+
+```{r message=FALSE}
+q.where.comp <- paste0("ecoclassid IN ", format_SQL_in_statement(list_ecositeid), " AND 
+                                      areasymbol != 'US' AND 
+                                      majcompflag = '", flag_majcmp, "' AND
+                                      NOT compname IN ", format_SQL_in_statement(to_ignore))
+
+# get component sets that are 1:1 with nmusym
+comp_nd <- fetchSDA_component(WHERE = q.where.comp, duplicates = FALSE)
+
+# remove component names set to ignore
+comp_nd <- comp_nd[which(!comp_nd$compname %in% strsplit(params$ignorecompname, ",")[[1]]),]
+
+# get full list of unique nmusyms (unique DMUs) and MUKEYs (needed for spatial relates)
+nmusym.list <- unique(comp_nd$nationalmusym)
+mukey.list <- unique(fetchSDA_component(WHERE = q.where.comp, duplicates = TRUE)$mukey)
+
+print(paste0("Found ", length(mukey.list), " MUKEYs representing ", 
+                       length(nmusym.list), " National Mapunit Symbols with ", 
+                       if(params$majorcompswitch) "major ", 
+                       "components correlated to ", paste0(list_ecositeid, collapse=", ")))
+```
+
+```{r}
+# custom massaging for R163 - TODO: implment in include file
+
+# create uniform label for bedrock, and set constand bottomdepth
+comp_nd$hzname[grepl(comp_nd$texture, pattern="br|uwb|wb", ignore.case = TRUE)] <- "R"
+comp_nd$hzdepb_r[grepl(comp_nd$texture, pattern="br|uwb|wb", ignore.case = TRUE)] <- 100
+
+# rename all surface horizons as A
+comp_nd$hzname[grepl(comp_nd$hzname, pattern="H1", ignore.case = TRUE)] <- "A"
+
+# create a horizon-level attribute with component name info
+comp_nd$parentname <- aqp::denormalize(comp_nd, 'compname')
+
+# make H2 horizons for Amador series Bw horizons
+comp_nd$hzname[grepl(comp_nd$hzname, pattern="H2", ignore.case = TRUE) & 
+               grepl(comp_nd$parentname, pattern="Amador", ignore.case = TRUE)] <- "Bw"
+
+# make H2 horizons for all other series Bt horizons
+comp_nd$hzname[grepl(comp_nd$hzname, pattern="H2", ignore.case = TRUE) & 
+               !grepl(comp_nd$parentname, pattern="Amador", ignore.case = TRUE)] <- "Bt"
+```
+
+```{r}
+# get legend-level information on components
+muall <- get_mapunit_from_SDA(WHERE=paste0('nationalmusym IN ', format_SQL_in_statement(nmusym.list)))
+legall <- get_legend_from_SDA(WHERE=paste0('nationalmusym IN ', format_SQL_in_statement(nmusym.list)))
+leg <- merge(muall, legall, by="areasymbol")
+
+leg.ex <- merge(site(comp_nd), leg, 'nationalmusym', all.x=T)
+
+#print(paste0("Cumulative area correlated to ", paste0(list_ecositeid, collapse=", "),": ", 
+#             round(sum(leg.ex$muacres*(leg.ex$comppct_r / 100))), " acres in ", 
+#             length(unique(leg.ex$areasymbol)), " soil survey area(s)."))
+
+# compute some summaries by soil survey area
+res1 <- leg.ex %>%
+  group_by(areasymbol) %>%
+  summarise(site_acres = round(sum(muacres * (comppct_r / 100), na.rm=TRUE)),
+            area_acres = areaacres[1],
+            site_pct_of_area = round(sum(muacres * (comppct_r / 100) / areaacres * 100, na.rm=TRUE))) 
+
+# calculate totals across all SSAs
+res1$group <- "All"
+res2 <- res1 %>%
+  group_by(group) %>%
+  summarise(site_acres = round(sum(site_acres, na.rm=TRUE)),
+            area_acres = round(sum(area_acres, na.rm=TRUE)),
+            site_pct_of_area = round((sum(site_acres, na.rm=TRUE) / sum(area_acres, na.rm=TRUE) * 100)))
+
+# format for table
+names(res2)[1] <- "areasymbol"
+res3 <- rbind(res1[,-5], res2)
+res3$areaname <- c(unlist(lapply(strsplit(legall$areaname, ","), 
+                                 function(x) return(x[1]))), "All")
+res3 <- res3[,c(1,5,2,3,4)]
+names(res3) <- c("Area Symbol","Area Name","Site Acres","Area Acres", "Site % of Area")
+# output table
+knitr::kable(res3, caption = paste0("Component Acres in Ecological Site [", 
+                              paste0(list_ecositeid, collapse=", "), "] tabulated by Soil Survey Area"))
+```
+
+```{r}
+# Acres by component name
+cmp1 <- leg.ex %>%
+  group_by(compname) %>%
+  summarise(comp_acres = round(sum(muacres, na.rm=TRUE)),
+            n_comp = length(muacres)) %>%
+  arrange(desc(comp_acres))
+
+knitr::kable(cmp1)
+```
+
+```{r}
+# spatial plot, colored by national mapunit symbol
+q <- paste0("select G.MupolygonWktWgs84 as geom, mapunit.mukey, nationalmusym FROM mapunit
+            CROSS APPLY SDA_Get_MupolygonWktWgs84_from_Mukey(mapunit.mukey) as G
+            WHERE mukey IN ",format_SQL_in_statement(mukey.list))
+
+# TODO chunking for large extents
+spres <- SDA_query(q)
+s <- processSDA_WKT(spres)
+
+color.lut <- viridis::viridis(length(unique(leg$nationalmusym)))
+names(color.lut) <- unique(leg$nationalmusym)
+
+par(mar=c(0,0,2,0))
+plot(s, border=0)
+caplabels <- unlist(lapply(as.list(maps::map('county', 'ca', names=T, plot=F)), 
+                    function(x) tools::toTitleCase(as.character(strsplit(x, ",")[[1]][2]))))
+maps::map('county', 'ca', add=T)
+plot(s, add=T, col=color.lut[s$nationalmusym], border=color.lut[s$nationalmusym], 
+     main=paste0("Unique National Mapunit Symbols with ", 
+                       if(params$majorcompswitch) "major ", 
+                       "components\ncorrelated to ", paste0(list_ecositeid, collapse=", ")))
+maps::map.text('county', 'ca', add=T, labels=caplabels, cex=1.03)
+```
+
