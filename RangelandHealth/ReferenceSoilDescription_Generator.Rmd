@@ -5,14 +5,14 @@ output: html_document
 params:
   ecositeid:
     label: "Ecological Site ID:"
-    value: "R018XI163CA"
+    value: "F018XI205CA"
     input: text
   majorcompswitch:
     label: "Major components only?"
     value: TRUE
   ignorecompname:
     label: "Ignore component names:"
-    value: "Peters,Cometa,Rocklin,Sesame"
+    value: "Peters,Cometa,Rocklin,Sesame,Bellota"
     input: text
 ---
 
@@ -20,45 +20,72 @@ params:
 knitr::opts_chunk$set(echo = FALSE)
 
 library(knitr)
-library(aqp)
-library(soilDB)
 library(tidyverse)
 
-# logic for handling major component switc
+library(aqp)
+library(soilDB)
+
+library(FedData)
+library(raster)
+library(viridis)
+
+# logic for handling major component switch
 flag_majcmp <- 'Yes'
 if(!params$majorcompswitch)
   flag_majcmp <- 'No' 
 
+# logic for ignoring specific component names (e.g. errors in assignment in SSURGO)
 to_ignore <- strsplit(params$ignorecompname, ",")
 if(!length(to_ignore))
   to_ignore <- ''
 
+# parse ecosite (for case of multiple ecosites of interest)
 list_ecositeid <- unlist(strsplit(params$ecositeid, ","))
 ```
 
-```{r message=FALSE}
+```{r fetchdata, message=FALSE}
+# construct WHERE clause for fetchSDA_component()
 q.where.comp <- paste0("ecoclassid IN ", format_SQL_in_statement(list_ecositeid), " AND 
                                       areasymbol != 'US' AND 
                                       majcompflag = '", flag_majcmp, "' AND
                                       NOT compname IN ", format_SQL_in_statement(to_ignore))
 
-# get component sets that are 1:1 with nmusym
-comp_nd <- fetchSDA_component(WHERE = q.where.comp, duplicates = FALSE)
+# get component sets that are 1:1 with nmusym (duplicates=FALSE)
+comp_nd <- fetchSDA_component(WHERE = q.where.comp, duplicates = FALSE, stringsAsFactors = FALSE)
 
-# remove component names set to ignore
+# remove components on ignore list
 comp_nd <- comp_nd[which(!comp_nd$compname %in% strsplit(params$ignorecompname, ",")[[1]]),]
 
-# get full list of unique nmusyms (unique DMUs) and MUKEYs (needed for spatial relates)
+# query additional horizon attributes (low and high of key attributes)
+
+# create a horizon-level attribute with component name info (to allow filtering of horizons by compname)
+comp_nd$parentname <- aqp::denormalize(comp_nd, 'compname')
+
+# get full list of unique nmusyms (~unique DMUs) and MUKEYs (needed for spatial relates within individual SSAs)
 nmusym.list <- unique(comp_nd$nationalmusym)
+
+# do a second query with duplicates=TRUE to get all MUKEYs (to be able to reference full spatial extent)
 mukey.list <- unique(fetchSDA_component(WHERE = q.where.comp, duplicates = TRUE)$mukey)
 
-print(paste0("Found ", length(mukey.list), " MUKEYs representing ", 
-                       length(nmusym.list), " National Mapunit Symbols with ", 
-                       if(params$majorcompswitch) "major ", 
-                       "components correlated to ", paste0(list_ecositeid, collapse=", ")))
+# debug
+# print(paste0("Found ", length(mukey.list), " MUKEYs representing ", 
+#                        length(nmusym.list), " National Mapunit Symbols with ", 
+#                        if(params$majorcompswitch) "major ", 
+#                       "components correlated to ", paste0(list_ecositeid, collapse=", ")))
+
+# get legend-level information on components returned above (i.e. meeting ecosite constraint)
+muall <- get_mapunit_from_SDA(WHERE=paste0('nationalmusym IN ', format_SQL_in_statement(nmusym.list)))
+legall <- get_legend_from_SDA(WHERE=paste0('nationalmusym IN ', format_SQL_in_statement(nmusym.list)))
+leg <- merge(muall, legall, by="areasymbol")
+leg.ex <- merge(site(comp_nd), leg, 'nationalmusym', all.x = TRUE)
+
+# debug
+#print(paste0("Cumulative area correlated to ", paste0(list_ecositeid, collapse=", "),": ", 
+#             round(sum(leg.ex$muacres*(leg.ex$comppct_r / 100))), " acres in ", 
+#             length(unique(leg.ex$areasymbol)), " soil survey area(s)."))
 ```
 
-```{r}
+```{r custom}
 # custom massaging for R163 - TODO: implment in include file
 
 # create uniform label for bedrock, and set constand bottomdepth
@@ -67,9 +94,6 @@ comp_nd$hzdepb_r[grepl(comp_nd$texture, pattern="br|uwb|wb", ignore.case = TRUE)
 
 # rename all surface horizons as A
 comp_nd$hzname[grepl(comp_nd$hzname, pattern="H1", ignore.case = TRUE)] <- "A"
-
-# create a horizon-level attribute with component name info
-comp_nd$parentname <- aqp::denormalize(comp_nd, 'compname')
 
 # make H2 horizons for Amador series Bw horizons
 comp_nd$hzname[grepl(comp_nd$hzname, pattern="H2", ignore.case = TRUE) & 
@@ -80,18 +104,9 @@ comp_nd$hzname[grepl(comp_nd$hzname, pattern="H2", ignore.case = TRUE) &
                !grepl(comp_nd$parentname, pattern="Amador", ignore.case = TRUE)] <- "Bt"
 ```
 
-```{r}
-# get legend-level information on components
-muall <- get_mapunit_from_SDA(WHERE=paste0('nationalmusym IN ', format_SQL_in_statement(nmusym.list)))
-legall <- get_legend_from_SDA(WHERE=paste0('nationalmusym IN ', format_SQL_in_statement(nmusym.list)))
-leg <- merge(muall, legall, by="areasymbol")
+### Ecological Site Acres by Soil Survey Area
 
-leg.ex <- merge(site(comp_nd), leg, 'nationalmusym', all.x=T)
-
-#print(paste0("Cumulative area correlated to ", paste0(list_ecositeid, collapse=", "),": ", 
-#             round(sum(leg.ex$muacres*(leg.ex$comppct_r / 100))), " acres in ", 
-#             length(unique(leg.ex$areasymbol)), " soil survey area(s)."))
-
+```{r acres-by-ssa}
 # compute some summaries by soil survey area
 res1 <- leg.ex %>%
   group_by(areasymbol) %>%
@@ -105,21 +120,25 @@ res2 <- res1 %>%
   group_by(group) %>%
   summarise(site_acres = round(sum(site_acres, na.rm=TRUE)),
             area_acres = round(sum(area_acres, na.rm=TRUE)),
-            site_pct_of_area = round((sum(site_acres, na.rm=TRUE) / sum(area_acres, na.rm=TRUE) * 100)))
+            site_pct_of_area = round((sum(site_acres, na.rm=TRUE) / sum(area_acres, na.rm=TRUE) * 100))) %>%
+  arrange(desc(site_acres))
 
 # format for table
 names(res2)[1] <- "areasymbol"
 res3 <- rbind(res1[,-5], res2)
-res3$areaname <- c(unlist(lapply(strsplit(legall$areaname, ","), 
-                                 function(x) return(x[1]))), "All")
+res3$areaname <- c(unlist(lapply(strsplit(legall$areaname, ","), function(x) return(x[1]))), "All")
 res3 <- res3[,c(1,5,2,3,4)]
 names(res3) <- c("Area Symbol","Area Name","Site Acres","Area Acres", "Site % of Area")
+
 # output table
-knitr::kable(res3, caption = paste0("Component Acres in Ecological Site [", 
-                              paste0(list_ecositeid, collapse=", "), "] tabulated by Soil Survey Area"))
+knitr::kable(res3, 
+             caption = paste0("Acres in Ecological Site [", paste0(list_ecositeid, collapse=", "),
+                              "] tabulated by Soil Survey Area"))
 ```
 
-```{r}
+### Ecological Site Acres by Component Name
+
+```{r acres-by-component}
 # Acres by component name
 cmp1 <- leg.ex %>%
   group_by(compname) %>%
@@ -127,24 +146,53 @@ cmp1 <- leg.ex %>%
             n_comp = length(muacres)) %>%
   arrange(desc(comp_acres))
 
-knitr::kable(cmp1)
+# output table
+names(cmp1) <- c("Component","Acres", "# of Components")
+knitr::kable(cmp1, caption = paste0("Acres in Ecological Site [", 
+                              paste0(list_ecositeid, collapse=", "), "] tabulated by Component Name"))
 ```
 
-```{r}
+```{r fetchspatial}
 # spatial plot, colored by national mapunit symbol
-q <- paste0("select G.MupolygonWktWgs84 as geom, mapunit.mukey, nationalmusym FROM mapunit
-            CROSS APPLY SDA_Get_MupolygonWktWgs84_from_Mukey(mapunit.mukey) as G
-            WHERE mukey IN ",format_SQL_in_statement(mukey.list))
+chunk_SDA_spatial <- function(mukey.list, attr = c("nationalmusym"), nchunk = 10) {
+  mukey.chunk <- (1:length(mukey.list) %% nchunk) + 1
+  s <- NULL
+  
+  for(i in 1:max(mukey.chunk)) {
+    idx <- which(mukey.chunk == i)
+    
+    q <- paste0("SELECT G.MupolygonWktWgs84 as geom, mapunit.mukey", if(nzchar(attr)) ", ", 
+                paste0(attr, collapse=", ")," FROM mapunit 
+                CROSS APPLY SDA_Get_MupolygonWktWgs84_from_Mukey(mapunit.mukey) as G 
+                WHERE mukey IN ", format_SQL_in_statement(mukey.list[idx]))
+    
+    #NB: FedData has a different (much simpler, but not equivalent) definition of SDA_query
+    #    it also uses the post/rest interface
+    sp.res.sub <- soilDB::SDA_query(q)
+    s.sub <- soilDB::processSDA_WKT(sp.res.sub)
+    
+    if(is.null(s)) {
+      s <- s.sub
+    } else {
+      s <- rbind(s, s.sub)
+    }
+  }
+  return(s)
+}
 
-# TODO chunking for large extents
-spres <- SDA_query(q)
-s <- processSDA_WKT(spres)
+s <- chunk_SDA_spatial(mukey.list)
+```
 
+### Ecological Site Spatial Extent Map
+
+```{r spatialplot}
+# create color lookup table by nmusym
 color.lut <- viridis::viridis(length(unique(leg$nationalmusym)))
 names(color.lut) <- unique(leg$nationalmusym)
 
-par(mar=c(0,0,2,0))
-plot(s, border=0)
+# create plot with county boundaries
+par(mar=c(0.1,0.1,0.1,0.1))
+plot(FedData::polygon_from_extent(s), border=0)
 caplabels <- unlist(lapply(as.list(maps::map('county', 'ca', names=T, plot=F)), 
                     function(x) tools::toTitleCase(as.character(strsplit(x, ",")[[1]][2]))))
 maps::map('county', 'ca', add=T)
@@ -152,6 +200,101 @@ plot(s, add=T, col=color.lut[s$nationalmusym], border=color.lut[s$nationalmusym]
      main=paste0("Unique National Mapunit Symbols with ", 
                        if(params$majorcompswitch) "major ", 
                        "components\ncorrelated to ", paste0(list_ecositeid, collapse=", ")))
-maps::map.text('county', 'ca', add=T, labels=caplabels, cex=1.03)
+maps::map.text('county', 'ca', add=T, labels=caplabels, cex=1.03, font=3)
+text(x=mean(raster::extent(s)[2:1]), y=raster::extent(s)[3]+0.05, cex=1.2, font=2,
+     paste0("Unique mapunits (National MUSYMs) with ", if(params$majorcompswitch) "major ", 
+                       "components\ncorrelated to ", paste0(list_ecositeid, collapse=", ")))
 ```
 
+### Component Data Summary
+
+```{r component-data}
+# depth to restrictions
+depth_to_br <- profileApply(comp_nd, top='hzdept_r', bottom='hzdepb_r', estimateSoilDepth, p="Cr|R|Cd|qm")
+res <- as.data.frame(quantile(depth_to_br, 
+               probs = c(0,0.05,0.25,0.5,0.75,0.95,1)))
+colnames(res) <- c("Depth to Bedrock, cm")
+
+par(mar=c(4.1,2.5,2,2.5))
+plot(density(depth_to_br, kernel="epanechnikov", na.rm=TRUE), 
+     main="Density Plot of Depth to Bedrock", 
+     xlab="Depth, cm",
+     ylim=c(0, 0.035))
+points(x=jitter(depth_to_br, 1.5), y=rep(0, length(depth_to_br)), pch=4)
+abline(v=res[c(1,7),1], lwd=2, lty=2, col="RED")
+abline(v=res[c(2,6),1], lwd=2, lty=2, col="BLUE")
+abline(v=res[4,1], lwd=2, col="GREEN")
+legend('topright', legend = c("Median","5th/95th Percentile", "Minimum/Maximum", "Component Bedrock Depth"),
+       lwd=c(2,2,2,NA), lty=c(1,2,2, NA), pch=c(NA,NA,NA,4), col=c("GREEN","BLUE","RED","BLACK"))
+kable(t(res), colnames = FALSE)
+```
+
+### Component Horizon Data Summary
+
+```{r horizon-data}
+# variables to summarize
+vars <- c('hzdept_r','hzdepb_r', 'texture',
+          'claytotal_l','claytotal_r','claytotal_h',
+          'sandtotal_l','sandtotal_r','sandtotal_h', 
+          'ph1to1h2o_l','ph1to1h2o_r','ph1to1h2o_h',
+          'fragvol_l','fragvol_r','fragvol_h')# needfragvol_l & fragvol_h
+
+# better names, used in final tables / figures
+var.names <- c('clay', 'sand', 'pH', 'Total RF')
+  
+h.i <- horizons(comp_nd)[c("chkey","hzname", vars)]
+
+h.i.ranges <- h.i %>% 
+  group_by(hzname) %>%
+  summarise(mindepth = min(hzdept_r),
+            middepth = median(((hzdepb_r - hzdept_r) / 2) + hzdept_r),
+            maxdepth = max(hzdepb_r),
+            claylow = round(min(claytotal_l)),
+            clayrv = round(median(claytotal_r)),
+            clayhigh = round(max(claytotal_h)),
+            pHlow = round(min(ph1to1h2o_l), 1),
+            pHrv = round(median(ph1to1h2o_r), 1),
+            pHhigh = round(max(ph1to1h2o_h), 1),
+            rflow = round(min(fragvol_l)),
+            rfrv = round(median(fragvol_r)),
+            rfhigh = round(max(fragvol_h)),
+            n = length(claytotal_r)) %>%
+  filter(n >= 3) %>%
+  na.omit()
+
+h.i.classes <- h.i %>% 
+  group_by(hzname) %>%
+  summarise(textures = paste0(unique(sort(toupper(texture))), collapse=", "),
+             n = length(claytotal_r)) %>%
+  filter(n >= 3) %>%
+  na.omit()
+
+knitr::kable(h.i.ranges, 
+             caption=paste0("Representative Values for Horizon Properties (all components correlated to ", paste0(list_ecositeid, collapse=", "),")"))
+
+knitr::kable(h.i.classes, 
+             caption=paste0("Representative Classes for Horizons (all components correlated to ", paste0(list_ecositeid, collapse=", "),")"))
+
+# h.i.long <- h.i %>% 
+#               gather_(key="variable", value = "value", vars) %>%
+#               filter(!is.na(hzname) & !is.na(value))
+```
+
+### Modern Series Concepts & Taxonomy
+```{r soiltax}
+osd <- fetchOSD(soils = unique(comp_nd$compname))
+plot(osd)
+# family-level differentia
+## PSC
+kable(site(osd)[,c('id','tax_partsize')])
+## Mineralogy
+kable(site(osd)[,c('id','tax_minclass')])
+## CEC Activity
+kable(site(osd)[,c('id','tax_ceactcl')])
+## Temperature Class
+kable(site(osd)[,c('id','tax_tempcl')])
+## Taxonomic Subgroup
+kable(site(osd)[,c('id','subgroup')])
+## Drainage class
+kable(site(osd)[,c('id','drainagecl')])
+```
