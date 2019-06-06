@@ -5,7 +5,7 @@ output: html_document
 params:
   ecositeid:
     label: "Ecological Site ID:"
-    value: "F018XI205CA"
+    value: "R018XI163CA"
     input: text
   majorcompswitch:
     label: "Major components only?"
@@ -51,7 +51,7 @@ q.where.comp <- paste0("ecoclassid IN ", format_SQL_in_statement(list_ecositeid)
                                       NOT compname IN ", format_SQL_in_statement(to_ignore))
 
 # get component sets that are 1:1 with nmusym (duplicates=FALSE)
-comp_nd <- fetchSDA_component(WHERE = q.where.comp, duplicates = FALSE, stringsAsFactors = FALSE)
+comp_nd <- suppressMessages(fetchSDA_component(WHERE = q.where.comp, duplicates = FALSE, stringsAsFactors = FALSE))
 
 # remove components on ignore list
 comp_nd <- comp_nd[which(!comp_nd$compname %in% strsplit(params$ignorecompname, ",")[[1]]),]
@@ -65,7 +65,7 @@ comp_nd$parentname <- aqp::denormalize(comp_nd, 'compname')
 nmusym.list <- unique(comp_nd$nationalmusym)
 
 # do a second query with duplicates=TRUE to get all MUKEYs (to be able to reference full spatial extent)
-mukey.list <- unique(fetchSDA_component(WHERE = q.where.comp, duplicates = TRUE)$mukey)
+mukey.list <- unique(suppressMessages(fetchSDA_component(WHERE = q.where.comp, duplicates = TRUE)$mukey))
 
 # debug
 # print(paste0("Found ", length(mukey.list), " MUKEYs representing ", 
@@ -74,8 +74,8 @@ mukey.list <- unique(fetchSDA_component(WHERE = q.where.comp, duplicates = TRUE)
 #                       "components correlated to ", paste0(list_ecositeid, collapse=", ")))
 
 # get legend-level information on components returned above (i.e. meeting ecosite constraint)
-muall <- get_mapunit_from_SDA(WHERE=paste0('nationalmusym IN ', format_SQL_in_statement(nmusym.list)))
-legall <- get_legend_from_SDA(WHERE=paste0('nationalmusym IN ', format_SQL_in_statement(nmusym.list)))
+muall <- suppressMessages(get_mapunit_from_SDA(WHERE=paste0('nationalmusym IN ', format_SQL_in_statement(nmusym.list))))
+legall <- suppressMessages(get_legend_from_SDA(WHERE=paste0('nationalmusym IN ', format_SQL_in_statement(nmusym.list))))
 leg <- merge(muall, legall, by="areasymbol")
 leg.ex <- merge(site(comp_nd), leg, 'nationalmusym', all.x = TRUE)
 
@@ -168,7 +168,7 @@ chunk_SDA_spatial <- function(mukey.list, attr = c("nationalmusym"), nchunk = 10
     
     #NB: FedData has a different (much simpler, but not equivalent) definition of SDA_query
     #    it also uses the post/rest interface
-    sp.res.sub <- soilDB::SDA_query(q)
+    sp.res.sub <- suppressMessages(soilDB::SDA_query(q))
     s.sub <- soilDB::processSDA_WKT(sp.res.sub)
     
     if(is.null(s)) {
@@ -283,7 +283,7 @@ knitr::kable(h.i.classes,
 ### Modern Series Concepts & Taxonomy
 ```{r soiltax}
 osd <- fetchOSD(soils = unique(comp_nd$compname))
-plot(osd)
+plot(osd, name="hzname")
 # family-level differentia
 ## PSC
 kable(site(osd)[,c('id','tax_partsize')])
