@@ -3,6 +3,5 @@
 .RData
 .Ruserdata
 *.xlsx
-*.csv
 *.Rda
 Scripts.Rproj
