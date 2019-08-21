@@ -1,0 +1,51 @@
+---
+title: "Multi-Project Land Category Breakdown"
+author: "Andrew Gene Brown"
+date: "August 6, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(sf)
+library(tidyverse)
+
+maps <- as.list(c('S:/NRCS/430 SOI Soil Survey/430-05 Soil Survey Area Case Files/Projects/EVAL projects/2019 Projects/Sierra_sandy_loam/2024-2SON-EVAL-001/Maps/2024-2SON-EVAL-001.shp',
+          'S:/NRCS/430 SOI Soil Survey/430-05 Soil Survey Area Case Files/Projects/EVAL projects/2019 Projects/Sierra_sandy_loam/2024-2SON-EVAL-002/Maps/2024-2SON-EVAL-002.shp',
+          'S:/NRCS/430 SOI Soil Survey/430-05 Soil Survey Area Case Files/Projects/EVAL projects/2019 Projects/Sierra_sandy_loam/2024-2SON-EVAL-003/Maps/2024-2SON-EVAL-003.shp'))
+
+lcb <- st_read("MLRAProjectTools/input/LCA_clean_geos.shp")
+
+# system.time( { lcb.simple <- lcb %>% group_by(NASIS_Cat) %>% summarise() } )
+# lcb <- lcb.simple
+
+lmap <- lapply(maps, st_read)
+
+# assign a group label based on index in map input list
+lmap <- lapply(1:length(lmap), function(l) {
+  lmap[[l]]$group <- l
+  return(lmap[[l]])
+})
+
+start_time <- Sys.time()
+out <- lapply(lmap, function(s) {
+  s.t <- st_transform(s, st_crs(lcb))
+  lcb.sub <- st_crop(lcb, s.t) # with test set of 3 latitudinally extensive projects of small extent (totalling ~15000 acres)
+                               # using st_crop() to filter LCB input reduces time to generate output by approx. 35% (1.6 min v.s 2.2 min)
+  res <- st_intersection(s.t, lcb.sub)
+  a <- round(st_area(res))
+  res$acres <- units::set_units(a, acre)
+  res2 <- res %>% 
+    group_by(group, NASIS_Cat) %>%
+    summarise(acres = sum(acres))
+  return(res2)
+})
+end_time <- Sys.time()
+
+end_time - start_time
+
+```
+
