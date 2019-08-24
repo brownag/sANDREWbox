@@ -12,7 +12,7 @@ params:
     value: TRUE
   ignorecompname:
     label: "Ignore component names:"
-    value: "Peters,Cometa,Rocklin,Sesame,Bellota"
+    value: ""
     input: text
 ---
 
@@ -181,6 +181,8 @@ chunk_SDA_spatial <- function(mukey.list, attr = c("nationalmusym"), nchunk = 10
 }
 
 s <- chunk_SDA_spatial(mukey.list)
+
+rgdal::writeOGR(s, dsn = ".", layer = paste(list_ecositeid,collapse = "_"), driver="ESRI Shapefile")
 ```
 
 ### Ecological Site Spatial Extent Map
@@ -285,16 +287,5 @@ knitr::kable(h.i.classes,
 osd <- fetchOSD(soils = unique(comp_nd$compname))
 plot(osd, name="hzname")
 # family-level differentia
-## PSC
-kable(site(osd)[,c('id','tax_partsize')])
-## Mineralogy
-kable(site(osd)[,c('id','tax_minclass')])
-## CEC Activity
-kable(site(osd)[,c('id','tax_ceactcl')])
-## Temperature Class
-kable(site(osd)[,c('id','tax_tempcl')])
-## Taxonomic Subgroup
-kable(site(osd)[,c('id','subgroup')])
-## Drainage class
-kable(site(osd)[,c('id','drainagecl')])
+kable(site(osd)[order(osd$subgroup, osd$tax_partsize), c('id','tax_partsize','tax_minclass','tax_ceactcl','tax_tempcl','subgroup','drainagecl')])
 ```

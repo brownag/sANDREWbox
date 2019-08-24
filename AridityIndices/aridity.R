@@ -1,6 +1,7 @@
 # aridity index calculator
 library(rgdal)
 library(raster)
+
 setwd('AridityIndices')
 abr <- raster("test.tif")
 
@@ -71,3 +72,8 @@ AIb <- calc(bb, fun = function(x) {
 }, filename="AIb.tif", overwrite=T)
 plot(AIb)
 AIb
+
+# PET - ET difference MODIS 
+pet_modis <- raster('from-dylan/data-sources/processed/MOD16-PET.tif')
+et_modis <- raster('from-dylan/data-sources/processed/MOD16-ET.tif')
+writeRaster(pet_modis - et_modis, filename = "MOD16_PET-ET.tif")

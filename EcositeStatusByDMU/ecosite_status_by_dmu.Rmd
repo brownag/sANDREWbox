@@ -12,7 +12,7 @@ output: html_document
 ###
 #Enter a regex pattern to match dmudesc
 ###
-dmupattern = "Crimeahouse|Gopheridge|Whiterock"
+dmupattern = "."
 cat("DMUID Pattern: ",dmupattern)
 ##################################
 
@@ -44,7 +44,7 @@ get_component_esd_data_from_NASIS_db2 <- function() {
   ORDER BY coiid;"
   
   # setup connection local NASIS
-  channel <- RODBC::odbcDriverConnect(connection="DSN=nasis_local;UID=NasisSqlRO;PWD=nasisRe@d0n1y")
+  channel <- RODBC::odbcDriverConnect(connection = getOption("soilDB.NASIS.credentials"))
   
   # exec query
   d <- RODBC::sqlQuery(channel, q, stringsAsFactors=FALSE)
@@ -76,7 +76,7 @@ get_component_eplant_data_from_NASIS_db <- function() {
   q <- "SELECT coiidref as coiidref, coeplantsiid, lplantiidref, forestunprod, rangeprod, coeplants.recwlupdated, coeplants.recuseriidref FROM coeplants;"
   
   # setup connection local NASIS
-  channel <- RODBC::odbcDriverConnect(connection="DSN=nasis_local;UID=NasisSqlRO;PWD=nasisRe@d0n1y")
+  channel <- RODBC::odbcDriverConnect(connection = getOption("soilDB.NASIS.credentials"))
   
   # exec query
   d <- RODBC::sqlQuery(channel, q, stringsAsFactors=FALSE)
@@ -98,7 +98,7 @@ get_NASIS_user_data <- function() {
     stop('please install the `RODBC` package', call.=FALSE)
   q <- "SELECT useriid as useriid, username, useraffiliation, useremailaddr FROM nasisuser;"
   # setup connection local NASIS
-  channel <- RODBC::odbcDriverConnect(connection="DSN=nasis_local;UID=NasisSqlRO;PWD=nasisRe@d0n1y")
+  channel <- RODBC::odbcDriverConnect(connection = getOption("soilDB.NASIS.credentials"))
   d <- RODBC::sqlQuery(channel, q, stringsAsFactors=FALSE)
   RODBC::odbcClose(channel)
   return(d)
@@ -113,7 +113,7 @@ get_component_fprod_data_from_NASIS_db <- function() {
   q <- "SELECT coiidref as coiidref, lplantiidref, siteindexbase, siteindex, siteindexstddev, fprodcmai, fprodage, coforprod.recwlupdated, coforprod.recuseriidref FROM coforprod;"
   
   # setup connection local NASIS
-  channel <- RODBC::odbcDriverConnect(connection="DSN=nasis_local;UID=NasisSqlRO;PWD=nasisRe@d0n1y")
+  channel <- RODBC::odbcDriverConnect(connection = getOption("soilDB.NASIS.credentials"))
   
   # exec query
   d <- RODBC::sqlQuery(channel, q, stringsAsFactors=FALSE)
@@ -129,7 +129,25 @@ get_component_fprod_data_from_NASIS_db <- function() {
   return(d)
 }
 
-c <-  as.data.frame(site(fetchNASIS_components()))
+get_legend_from_NASIS_db <- function() {
+  if(!requireNamespace('RODBC'))
+    stop('please install the `RODBC` package', call.=FALSE)
+  q <- "SELECT nationalmusym, dmuiid, musym, muname, mustatus FROM legend AS l
+          INNER JOIN lmapunit AS lmu ON lmu.liidref = l.liid
+          INNER JOIN mapunit AS mu ON mu.muiid = lmu.muiidref
+          INNER JOIN correlation AS cor ON cor.muiidref = mu.muiid
+          INNER JOIN datamapunit AS dmu ON dmu.dmuiid = cor.dmuiidref
+        WHERE cor.repdmu = 1 AND lmu.mustatus != 4"
+  #does not join to component           INNER JOIN component AS co ON co.dmuiidref = dmu.dmuiid 
+  channel <- RODBC::odbcDriverConnect(connection = getOption("soilDB.NASIS.credentials"))
+  d <- RODBC::sqlQuery(channel, q, stringsAsFactors=FALSE)
+  RODBC::odbcClose(channel)
+  return(d)
+}
+
+c <-  as.data.frame(site(fetchNASIS_components(SS = TRUE)))
+l <- get_legend_from_NASIS_db()
+c <- join(c, l, by="dmuiid")
 
 #uses modified version of soilDB function
 e <-  as.data.frame(get_component_esd_data_from_NASIS_db2())
@@ -147,8 +165,11 @@ c <- c[grepl(c$dmudesc,pattern=dmupattern),] #narrow components based on user su
 
 ce <- join(c,e,by="coiid")
 
-ce$plants <- ce$coiid %in% ep$ep_coiidref #just checks to see if there is at least one existing plants record correspondign to the component id
-ce$forestp <- ce$coiid %in% fp$fp_coiidref #just checks to see if there is at least one forest prod record correspondign to the component id
+#just checks to see if there is at least one existing plants record correspondign to the component id
+ce$plants <- ce$coiid %in% ep$ep_coiidref 
+
+#just checks to see if there is at least one forest prod record correspondign to the component id
+ce$forestp <- ce$coiid %in% fp$fp_coiidref 
 
 #make a more useful name field
 users$recuseriidref <- users$useriid
@@ -166,16 +187,17 @@ ce$drainage <- sub(pattern=" ",replacement="",x=as.character(ce$drainage))
 #ce$drainage <- ce$drainagecl
 
 #choose a few informative attributes to display
-namez <- c("dmudesc","coiid","compname","comppct_r","ecositeid","taxsubgrp","taxpartsize","drainage","plants","forestp","recwlupdated","user_name")
+namez <- c("musym","dmudesc","coiid","compname","comppct_r","ecositeid","taxsubgrp","taxpartsize","drainage","plants","forestp","recwlupdated","user_name")
 
-#order by mapunit (alphabetic/numeric order) and by component percentage (largest first)
-ce <- ce[order(ce$dmudesc,-ce$comppct_r),namez]
+#order by musym (alphabetic/numeric order) and by component percentage (largest first)
+ce <- ce[order(ce$musym, -ce$comppct_r), namez]
 ```
 
 ```{r, echo=F, results="asis"}
-for(ss in levels(factor(ce$dmudesc))) {
-  cat("####", ss, "\n")
-  print(kable(ce[which(ce$dmudesc == ss),-1],row.names = F,align='c'))
+for(ss in 1:length(unique(ce$dmudesc))) {
+  ce.sub <- ce[which(ce$dmudesc == unique(ce$dmudesc)[ss]), ]
+  cat("####", ce.sub$musym[1]," : ", ce.sub$dmudesc[1], "\n")
+  print(kable(unique(ce.sub[, -2]), row.names = F, align='c'))
   cat("\n***\n")
 }
 ```
