@@ -171,6 +171,9 @@ f$awc_0to50_h[!is.finite(f$awc_0to50_h)] <- NA
 
 quantile(f$awc_0to50, na.rm = TRUE)
 
+f$awc_0to200 <- profileApply(f, function(p) sum(p$awc_r * (p$hzdepb - p$hzdept)))
+quantile(f$awc_0to200, na.rm = TRUE)
+
 plot(ecdf(f$awc_0to50), main = "MLRA 18 - Sierra series EVAL - Pedon Avail. Water Capacity\nEmpirical CDF",
      xlab="cm of Available Water (0 to 50 cm)", xlim=c(5,11))
 plot(ecdf(f$awc_0to50_l), col="RED", add=T)
