@@ -12,7 +12,7 @@ params:
     value: TRUE
   ignorecompname:
     label: "Ignore component names:"
-    value: "Peters,Cometa"
+    value: "Peters,Cometa,Red Bluff,Redding,Yokohl,Rocklin,Sesame,Whitney,Mokelumne,Miltonhills"
     input: text
 ---
 
@@ -51,22 +51,26 @@ q.where.comp <- paste0("ecoclassid IN ", format_SQL_in_statement(list_ecositeid)
                                       NOT compname IN ", format_SQL_in_statement(to_ignore))
 
 # get component sets that are 1:1 with nmusym (duplicates=FALSE)
-comp_nd <- suppressMessages(fetchSDA_component(WHERE = q.where.comp, duplicates = FALSE, stringsAsFactors = FALSE))
+comp_nd <- suppressMessages(fetchNASISWebReport(projectname = "ES - MLRA 18 - Thermic Low Rolling Hills 14 - 20 PZ R018XI163CA", stringsAsFactors = FALSE))
 
 # remove components on ignore list
-comp_nd <- comp_nd[which(!comp_nd$compname %in% strsplit(params$ignorecompname, ",")[[1]]),]
+comp_nd$spc <- comp_nd$spc[which(!comp_nd$spc$compname %in% to_ignore[[1]]),]
 
+# remove additionals, misc areas and minor components
+comp_nd$spc <- comp_nd$spc[comp_nd$spc$dmuiid %in% comp_nd$mapunit[comp_nd$mapunit$mustatus == 'correlated',]$dmuiid,]
+comp_nd$spc <- comp_nd$spc[comp_nd$spc$compkind != "miscellaneous area",]
+comp_nd$spc <- comp_nd$spc[which(comp_nd$spc$majcompflag == '1'),]
 # query additional horizon attributes (low and high of key attributes)
 
 # create a horizon-level attribute with component name info (to allow filtering of horizons by compname)
-comp_nd$parentname <- aqp::denormalize(comp_nd, 'compname')
+comp_nd$spc$parentname <- aqp::denormalize(comp_nd$spc, 'compname')
 
 # get full list of unique nmusyms (~unique DMUs) and MUKEYs (needed for spatial relates within individual SSAs)
-nmusym.list <- unique(comp_nd$nationalmusym)
+nmusym.list <- unique(comp_nd$mapunit$nationalmusym[comp_nd$mapunit$dmuiid %in% comp_nd$spc$dmuiid])
 
 # do a second query with duplicates=TRUE to get all MUKEYs (to be able to reference full spatial extent)
-mukey.list <- unique(suppressMessages(fetchSDA_component(WHERE = q.where.comp, duplicates = TRUE)$mukey))
-
+#mukey.list <- unique(suppressMessages(fetchSDA_component(WHERE = q.where.comp, duplicates = TRUE)$mukey))
+mukey.list <- unique(comp_nd$mapunit$lmapunitiid[comp_nd$mapunit$dmuiid %in% comp_nd$spc$dmuiid])
 # debug
 # print(paste0("Found ", length(mukey.list), " MUKEYs representing ", 
 #                        length(nmusym.list), " National Mapunit Symbols with ", 
@@ -76,32 +80,32 @@ mukey.list <- unique(suppressMessages(fetchSDA_component(WHERE = q.where.comp, d
 # get legend-level information on components returned above (i.e. meeting ecosite constraint)
 muall <- suppressMessages(get_mapunit_from_SDA(WHERE=paste0('nationalmusym IN ', format_SQL_in_statement(nmusym.list))))
 legall <- suppressMessages(get_legend_from_SDA(WHERE=paste0('nationalmusym IN ', format_SQL_in_statement(nmusym.list))))
-leg <- merge(muall, legall, by="areasymbol")
-leg.ex <- merge(site(comp_nd), leg, 'nationalmusym', all.x = TRUE)
+leg <- merge(muall, legall, by=c("areasymbol", "lkey"))
+comp <- merge(site(comp_nd$spc), comp_nd$mapunit[,c('dmuiid','lmapunitiid')], "dmuiid")
+leg.ex <- merge(comp, leg, by.x = "lmapunitiid", by.y="mukey", all.x = TRUE)
+leg.ex <- leg.ex[!is.na(leg.ex$areasymbol),]
 
-# debug
-#print(paste0("Cumulative area correlated to ", paste0(list_ecositeid, collapse=", "),": ", 
-#             round(sum(leg.ex$muacres*(leg.ex$comppct_r / 100))), " acres in ", 
-#             length(unique(leg.ex$areasymbol)), " soil survey area(s)."))
+# # debug
+# print(paste0("Cumulative area correlated to ", paste0(list_ecositeid, collapse=", "),": ", 
+#              round(sum(leg$muacres)), " acres in ", 
+#              length(unique(leg$areasymbol)), " soil survey area(s)."))
 ```
 
 ```{r custom}
+# create uniform label for bedrock, and set constant bottomdepth
+comp_nd$spc$hzname[grepl(comp_nd$spc$hzname, pattern="R|Cr", ignore.case = TRUE)] <- "R"
+comp_nd$spc$hzname[grepl(comp_nd$spc$texture, pattern="br|uwb|wb", ignore.case = TRUE)] <- "R"
+
 # custom massaging for R163 - TODO: implment in include file
+comp_nd$spc$hzname[grepl(comp_nd$spc$hzname, pattern="^A|H1", ignore.case = TRUE)] <- "A"
 
-# create uniform label for bedrock, and set constand bottomdepth
-comp_nd$hzname[grepl(comp_nd$texture, pattern="br|uwb|wb", ignore.case = TRUE)] <- "R"
-comp_nd$hzdepb_r[grepl(comp_nd$texture, pattern="br|uwb|wb", ignore.case = TRUE)] <- 100
+comp_nd$spc$hzname[grepl(comp_nd$spc$hzname, pattern="H[2-9]|B", ignore.case = TRUE)] <- "B"
 
-# rename all surface horizons as A
-comp_nd$hzname[grepl(comp_nd$hzname, pattern="H1", ignore.case = TRUE)] <- "A"
+comp_nd$spc$hzname[grepl(comp_nd$spc$hzname, pattern="^C", ignore.case = TRUE)] <-
+"C"
 
-# make H2 horizons for Amador series Bw horizons
-comp_nd$hzname[grepl(comp_nd$hzname, pattern="H2", ignore.case = TRUE) & 
-               grepl(comp_nd$parentname, pattern="Amador", ignore.case = TRUE)] <- "Bw"
+comp_nd$spc$hzname[is.na(comp_nd$spc$texture) & !comp_nd$spc$hzdept_r == 0 & is.na(comp_nd$spc$sandtotal_r)] <- "R"
 
-# make H2 horizons for all other series Bt horizons
-comp_nd$hzname[grepl(comp_nd$hzname, pattern="H2", ignore.case = TRUE) & 
-               !grepl(comp_nd$parentname, pattern="Amador", ignore.case = TRUE)] <- "Bt"
 ```
 
 ### Ecological Site Acres by Soil Survey Area
@@ -126,7 +130,8 @@ res2 <- res1 %>%
 # format for table
 names(res2)[1] <- "areasymbol"
 res3 <- rbind(res1[,-5], res2)
-res3$areaname <- c(unlist(lapply(strsplit(legall$areaname, ","), function(x) return(x[1]))), "All")
+area.lut <- unique(data.frame(leg.ex$areasymbol, leg.ex$areaname))
+res3$areaname <- c(as.character(area.lut[match(res3$areasymbol[1:(nrow(res3)-1)], area.lut[,1]),2]), "All")
 res3 <- res3[,c(1,5,2,3,4)]
 names(res3) <- c("Area Symbol","Area Name","Site Acres","Area Acres", "Site % of Area")
 
@@ -168,8 +173,12 @@ chunk_SDA_spatial <- function(mukey.list, attr = c("nationalmusym"), nchunk = 10
     
     #NB: FedData has a different (much simpler, but not equivalent) definition of SDA_query
     #    it also uses the post/rest interface
+    
     sp.res.sub <- suppressMessages(soilDB::SDA_query(q))
-    s.sub <- soilDB::processSDA_WKT(sp.res.sub)
+    if(!length(sp.res.sub))
+      s.sub <- s[0,]
+    else
+      s.sub <- soilDB::processSDA_WKT(sp.res.sub)
     
     if(is.null(s)) {
       s <- s.sub
@@ -182,7 +191,9 @@ chunk_SDA_spatial <- function(mukey.list, attr = c("nationalmusym"), nchunk = 10
 
 s <- chunk_SDA_spatial(mukey.list)
 
-rgdal::writeOGR(s, dsn = ".", layer = paste(list_ecositeid,collapse = "_"), driver="ESRI Shapefile", overwrite=TRUE)
+s$ecosite <- paste(list_ecositeid, collapse = "_")
+rgdal::writeOGR(s, dsn = ".", layer = paste(list_ecositeid, collapse = "_"), overwrite=TRUE,
+                driver="ESRI Shapefile")
 ```
 
 ### Ecological Site Spatial Extent Map
@@ -212,7 +223,8 @@ text(x=mean(raster::extent(s)[2:1]), y=raster::extent(s)[3]+0.05, cex=1.2, font=
 
 ```{r component-data}
 # depth to restrictions
-depth_to_br <- profileApply(comp_nd, top='hzdept_r', bottom='hzdepb_r', estimateSoilDepth, p="Cr|R|Cd|qm")
+depth_to_br <- profileApply(comp_nd$spc, top='hzdept_r', bottom='hzdepb_r', estimateSoilDepth, p="Cr|R|Cd|qm")
+depth_to_br[!is.finite(depth_to_br) & depth_to_br < 0] <- 0
 res <- as.data.frame(quantile(depth_to_br, 
                probs = c(0,0.05,0.25,0.5,0.75,0.95,1)))
 colnames(res) <- c("Depth to Bedrock, cm")
@@ -239,38 +251,48 @@ vars <- c('hzdept_r','hzdepb_r', 'texture',
           'claytotal_l','claytotal_r','claytotal_h',
           'sandtotal_l','sandtotal_r','sandtotal_h', 
           'ph1to1h2o_l','ph1to1h2o_r','ph1to1h2o_h',
-          'fragvol_l','fragvol_r','fragvol_h')# needfragvol_l & fragvol_h
+          'ksat_l','ksat_r','ksat_h',
+          'fragvoltot_l','fragvoltot_r','fragvoltot_h')# needfragvol_l & fragvol_h
 
 # better names, used in final tables / figures
-var.names <- c('clay', 'sand', 'pH', 'Total RF')
-  
-h.i <- horizons(comp_nd)[c("chkey","hzname", vars)]
+var.names <- c('clay', 'sand', 'ph1to1h2o', 'fragvol')
 
-h.i.ranges <- h.i %>% 
-  group_by(hzname) %>%
-  summarise(mindepth = min(hzdept_r),
+h.i <- horizons(comp_nd$spc)[,c("chiid","parentname","hzname", vars)]
+
+getmode <- function(v, na.rm=TRUE) {
+  if(na.rm==TRUE)
+    v <- v[!is.na(v)]
+   uniqv <- unique(v)
+   uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+
+suppressWarnings(h.i.ranges <- h.i %>% 
+  group_by(parentname, hzname) %>%
+  summarise(depth_q5 = round(quantile(hzdept_r, probs=c(0.05), na.rm = T)),
             middepth = median(((hzdepb_r - hzdept_r) / 2) + hzdept_r),
-            maxdepth = max(hzdepb_r),
-            claylow = round(min(claytotal_l)),
-            clayrv = round(median(claytotal_r)),
-            clayhigh = round(max(claytotal_h)),
-            pHlow = round(min(ph1to1h2o_l), 1),
-            pHrv = round(median(ph1to1h2o_r), 1),
-            pHhigh = round(max(ph1to1h2o_h), 1),
-            rflow = round(min(fragvol_l)),
-            rfrv = round(median(fragvol_r)),
-            rfhigh = round(max(fragvol_h)),
+            depth_q95 = round(quantile(hzdepb_r, probs=c(0.95), na.rm = T)),
+            claylow = round(quantile(claytotal_l, probs=c(0.05), na.rm = T)),
+            clayrv = round(getmode(claytotal_r), 1),
+            clayhigh = round(quantile(claytotal_h, probs=c(0.95), na.rm = T)),
+            pHlow = round(min(ph1to1h2o_l, na.rm = T), 1),
+            pHrv = round(getmode(ph1to1h2o_r), 1),
+            pHhigh = round(max(ph1to1h2o_h, na.rm = T), 1),
+            rflow = round(min(fragvoltot_l, na.rm = T)),
+            rfrv = round(getmode(fragvoltot_r), 1),
+            rfhigh = round(max(fragvoltot_h, na.rm = T)),
             n = length(claytotal_r)) %>%
-  filter(n >= 3) %>%
-  na.omit()
+  filter(hzname != "R"))
 
-h.i.classes <- h.i %>% 
-  group_by(hzname) %>%
+suppressWarnings(h.i.classes <- h.i %>% 
+  group_by(parentname, hzname) %>%
   summarise(textures = paste0(unique(sort(toupper(texture))), collapse=", "),
              n = length(claytotal_r)) %>%
-  filter(n >= 3) %>%
-  na.omit()
+  filter(hzname != "R")  %>%
+  na.omit())
 
+h.i.ranges[is.na(h.i.ranges)] <- "-"
+h.i.classes[is.na(h.i.classes)] <- "-"  
+  
 knitr::kable(h.i.ranges, 
              caption=paste0("Representative Values for Horizon Properties (all components correlated to ", paste0(list_ecositeid, collapse=", "),")"))
 
@@ -284,8 +306,9 @@ knitr::kable(h.i.classes,
 
 ### Modern Series Concepts & Taxonomy
 ```{r soiltax}
-osd <- fetchOSD(soils = unique(comp_nd$compname))
+osd <- fetchOSD(soils = unique(comp_nd$spc$compname))
 plot(osd, name="hzname")
+
 # family-level differentia
-kable(site(osd)[order(osd$subgroup, osd$tax_partsize), c('id','tax_partsize','tax_minclass','tax_ceactcl','tax_tempcl','subgroup','drainagecl')])
+kable(cbind(site(osd),getSoilDepthClass(osd, top = "top", bottom = "bottom")[,c('depth','depth.class')])[order(osd$tax_tempcl, osd$subgroup, osd$tax_partsize, osd$drainagecl), c('id','depth.class','drainagecl','tax_partsize','tax_minclass','tax_ceactcl','tax_tempcl','subgroup')], row.names = FALSE)
 ```
