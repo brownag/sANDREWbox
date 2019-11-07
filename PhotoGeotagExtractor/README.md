@@ -1,5 +1,5 @@
 # PhotoGeotagExtractor
-###  Author: andrew brown
+###  Author: Andrew G. Brown
 ###  Version: 0.4
 ###  Last update: 2019/11/06
 
@@ -7,7 +7,7 @@ Extract EXIF Geotag information from JPEG files, and use it to sort/cluster site
 
 Now using all _native *R* code_! 
 
-Relies on my fork of [cmartin/EXIFr](https://github.com/cmartin/EXIFr), which adds parsing functionality for a much broader set of TIFF IFD tags than the original.
+Relies on my fork of [cmartin/EXIFr](https://github.com/cmartin/EXIFr), [brownag/EXIFr](https://github.com/brownag/EXIFr), which adds parsing functionality for a much broader set of TIFF IFD tags than the original -- including all GPS tags.
 
 Note that `EXIFr` is NOT the same package as `exifr`, which can be found on CRAN. `exifr` relies on either an external Perl library, or a compiled executable, neither of which are an option on USDA Common Computing Environment.
 
@@ -37,7 +37,7 @@ device_projection <- '+proj=longlat +datum=WGS84 +ellps=GRS80'
 # [currently not supported] device_timezone - convert image timezone to local timezone
 device_timezone <- Sys.timezone()                            
 
-# threshold_distance - maximum distance of image cluster centroids to related points in point_layer
+# threshold_distance - maximum distance (meters) of image cluster centroids to related points in point_layer
 #                      NOTE: when calculating image centroids, _half_ the threshold_dist is used to define clusters
 threshold_dist <- 100              
 
