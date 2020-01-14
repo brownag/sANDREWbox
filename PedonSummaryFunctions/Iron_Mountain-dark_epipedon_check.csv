@@ -1,0 +1,4 @@
+"","peiid","diag_kind","featdept","featdepb","thickness","dsubound","dslbound","is_ochric","pedon_id","tmatch","bmatch","match"
+"1",463678,"mollic epipedon",0,52,52,0,18,FALSE,"09BJM123",TRUE,FALSE,FALSE
+"2",1193385,"ochric epipedon",0,18,18,0,28,TRUE,"2017CA6306081",TRUE,FALSE,FALSE
+"3",1225700,"ochric epipedon",0,14,14,0,14,TRUE,"2017CA6306108N",TRUE,TRUE,TRUE

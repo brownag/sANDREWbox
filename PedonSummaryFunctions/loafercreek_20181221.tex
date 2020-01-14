@@ -1,0 +1,672 @@
+\documentclass[]{article}
+\usepackage{lmodern}
+\usepackage{amssymb,amsmath}
+\usepackage{ifxetex,ifluatex}
+\usepackage{fixltx2e} % provides \textsubscript
+\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+\else % if luatex or xelatex
+  \ifxetex
+    \usepackage{mathspec}
+  \else
+    \usepackage{fontspec}
+  \fi
+  \defaultfontfeatures{Ligatures=TeX,Scale=MatchLowercase}
+\fi
+% use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+% use microtype if available
+\IfFileExists{microtype.sty}{%
+\usepackage{microtype}
+\UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\usepackage[margin=1in]{geometry}
+\usepackage{hyperref}
+\hypersetup{unicode=true,
+            pdftitle={Loafercreek - a pedon summary function demonstration},
+            pdfauthor={Andrew Brown},
+            pdfborder={0 0 0},
+            breaklinks=true}
+\urlstyle{same}  % don't use monospace font for urls
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\usepackage{framed}
+\definecolor{shadecolor}{RGB}{248,248,248}
+\newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\ImportTok}[1]{#1}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\BuiltInTok}[1]{#1}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.77,0.63,0.00}{#1}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{0.94,0.16,0.16}{#1}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{0.64,0.00,0.00}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\usepackage{graphicx,grffile}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+\IfFileExists{parskip.sty}{%
+\usepackage{parskip}
+}{% else
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt plus 2pt minus 1pt}
+}
+\setlength{\emergencystretch}{3em}  % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{0}
+% Redefines (sub)paragraphs to behave more like sections
+\ifx\paragraph\undefined\else
+\let\oldparagraph\paragraph
+\renewcommand{\paragraph}[1]{\oldparagraph{#1}\mbox{}}
+\fi
+\ifx\subparagraph\undefined\else
+\let\oldsubparagraph\subparagraph
+\renewcommand{\subparagraph}[1]{\oldsubparagraph{#1}\mbox{}}
+\fi
+
+%%% Use protect on footnotes to avoid problems with footnotes in titles
+\let\rmarkdownfootnote\footnote%
+\def\footnote{\protect\rmarkdownfootnote}
+
+%%% Change title format to be more compact
+\usepackage{titling}
+
+% Create subtitle command for use in maketitle
+\newcommand{\subtitle}[1]{
+  \posttitle{
+    \begin{center}\large#1\end{center}
+    }
+}
+
+\setlength{\droptitle}{-2em}
+
+  \title{Loafercreek - a pedon summary function demonstration}
+    \pretitle{\vspace{\droptitle}\centering\huge}
+  \posttitle{\par}
+    \author{Andrew Brown}
+    \preauthor{\centering\large\emph}
+  \postauthor{\par}
+    \date{}
+    \predate{}\postdate{}
+  
+
+\begin{document}
+\maketitle
+
+The Loafercreek series (fine-loamy, mixed, active, thermic Ultic
+Haploxeralfs) is comprised of soils on foothills underlain by
+metavolcanic rock. They are moderately deep (50 to 100cm) to a
+paralithic contact. The series was established in Butte county (CA612)
+and now is mapped in Calaveras and Tuolumne (CA630) as well as small
+portions of Mariposa and Stanislaus Counties (CA630 join with CA649 and
+CA644).
+
+Areas of soils similar to Loafercreek have been mapped as Auburn soils
+throughout the Sierra Nevada Foothills. These Auburn soils no longer
+fall within a single family (12th edition taxonomy). Auburn ``series''
+has been constrained to shallow soils, specifically the lithic subgroups
+lacking a clay increase (Lithic Haploxerepts).
+
+Deeper soils on these parent materials and in this climate typically
+have a pedogenic clay increase (argillic horizon). Shallow soils with
+argillic horizons are the geographically associated Bonanza and Dunstone
+soils. Skeletal varieties are Jasperpeak (shallow) and Gopherridge
+(moderately deep). Soils without a bedrock restriction are called
+Motherlode.
+
+In this demo, we are going to use R-based summaries to explore some of
+the properties of the Loafercreek soils found during soil survey
+inventory in CA630. An understanding of the range in characteristics of
+these soils will facilitate correlation of modern soil series concepts
+during FY19 update work on the adjacent CA649 (Mariposa County Area)
+which contains large areas of similar metavolcanic rocks.
+
+\subsubsection{Load the data}\label{load-the-data}
+
+The \texttt{sharpshootR} library has some great tools for manipulating
+pedon data. To get the data out of the complex structures found in
+databases and into a (still complex) R-usable format, we use the library
+\texttt{soilDB}. One of the default test datasets provided by
+\texttt{soilDB} is \texttt{loafercreek}. Along with \texttt{soilDB} we
+get the dependency \texttt{aqp} which gives us the data structure to
+hold our pedon data (a \texttt{SoilProfileCollection} object).
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\KeywordTok{library}\NormalTok{(sharpshootR)}
+\KeywordTok{library}\NormalTok{(soilDB)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Loading required package: aqp
+\end{verbatim}
+
+\begin{verbatim}
+## This is aqp 1.16-5
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\KeywordTok{data}\NormalTok{(}\StringTok{"loafercreek"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\subsubsection{The
+SoilProfileCollection}\label{the-soilprofilecollection}
+
+The \texttt{loafercreek} dataset we just loaded is a
+\texttt{SoilProfileCollection} (SPC) object. A SPC is a multipart (S4) R
+object that contains paired site and horizon-level data for soil profile
+(pedon) observations. It can contain spatial data in the spatial slot
+(\texttt{spc@sp}). The site (\texttt{spc@site}) and horizon
+(\texttt{spc@horizon}) slots are each comprised of a single
+\texttt{data.frame}. They should be accessed using
+\texttt{horizons(spc)} and \texttt{site(spc)} or using square bracket
+notation.
+
+\begin{quote}
+Read more about the \texttt{SoilProfileCollection} object
+\end{quote}
+
+Let's check out \texttt{loafercreek}!
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{# plot a few profiles}
+\KeywordTok{plot}\NormalTok{(}\KeywordTok{head}\NormalTok{(loafercreek))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## guessing horizon designations are stored in `hzname`
+\end{verbatim}
+
+\includegraphics{loafercreek_20181221_files/figure-latex/unnamed-chunk-1-1.pdf}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{#number of sites (profiles) in `loafercreek` site dataframe}
+\KeywordTok{nrow}\NormalTok{(}\KeywordTok{site}\NormalTok{(loafercreek))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 115
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{#number of horizons (layers) in `loafercreek` horizons dataframe}
+\KeywordTok{nrow}\NormalTok{(}\KeywordTok{horizons}\NormalTok{(loafercreek))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 678
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{#maximum clay content observed out of all profiles and horizons (max of `clay` variable in the horizons dataframe)}
+\KeywordTok{max}\NormalTok{(}\KeywordTok{horizons}\NormalTok{(loafercreek)}\OperatorTok{$}\NormalTok{clay, }\DataTypeTok{na.rm =} \OtherTok{TRUE}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 60
+\end{verbatim}
+
+There is a many:one relationship for horizons within a site. Many of the
+properties we describe in soil survey (geomorphology, color, structure,
+rock fragments etc) also are many:one with respect to site or horizon.
+The SPC data structure (linking site and horizon data) provides a way of
+keeping this all aligned, or at least it attempts to. :)
+
+Many-to-one ``flattening'' used in SPCs created from hierarchical
+databases often makes use of RV indicator fields, or other compression
+of information within child tables, to provide a single site or horizon-
+level value as appropriate. If data are populated incorrectly
+(particularly in NASIS applications) this may lead to duplication of
+records.
+
+Sometimes you want to do your own flattening. Many analyses start with
+creating site-level variables based on an aggregation of some of a
+pedon's horizon data; and you would like to apply the calculation to
+each profile in your dataset. For instance, you might be interested in
+calculating weighted-average field-texture clay content in the particle
+size control section, or the fine-clay ratio in the first ``illuvial''
+horizon, or the whole-profile available water capacity.
+
+SPC data (sites, horizons) are accessed in ways similar to a base R
+\texttt{data.frame}. Despite the similarities, remember that most R
+functions are not ``aware'' of SPCs and will often fail in unsual ways
+when supplied with one as an argument.
+
+\texttt{soilDB} provides a variety of ways to import soil data into
+SPCs, or you can create your own from scratch/flat files. \texttt{aqp}
+and \texttt{sharpshootR} provide a wide array of functions (and more all
+the time) for interacting with SPCs.
+
+\begin{center}\rule{0.5\linewidth}{\linethickness}\end{center}
+
+\subsubsection{\texorpdfstring{Using
+\texttt{profileApply()}}{Using profileApply()}}\label{using-profileapply}
+
+The \texttt{aqp} function \texttt{profileApply()} allows us to evaluate
+a user-specified function on each profile in a SPC.
+\texttt{profileApply()} returns a \texttt{list} object containing
+results of each function call. The number of results returned is equal
+to the number of sites in the SPC.
+
+Here, we use a \texttt{sharpshootR} function called
+\texttt{estimateSoilDepth()} to demonstrate how \texttt{profileApply()}
+works.
+
+\begin{quote}
+Read more about \texttt{estimateSoilDepth()}
+\end{quote}
+
+\texttt{estimateSoilDepth()} use a REGular EXpression (regex pattern) to
+match horizon designations. The default setting is designed for bedrock
+restrictions and matches horizon designations matching Cr, R or Cd. The
+function returns the top depth of the first horizon matching that
+pattern.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{#call the function 'estimateSoilDepth()' on each profile in SPC 'loafercreek'}
+\NormalTok{depth.to.contact <-}\StringTok{ }\KeywordTok{profileApply}\NormalTok{(loafercreek, estimateSoilDepth)}
+\end{Highlighting}
+\end{Shaded}
+
+It is possible, depending on the user-specified function ``applied,'' to
+have results that are \texttt{NA} or behave unexpectedly (i.e.~results
+with length \textgreater{} 1, complex objects). Before writing a
+\texttt{profileApply()} call, try your function on just a single
+profile:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{just.one <-}\StringTok{ }\NormalTok{loafercreek[}\DecValTok{1}\NormalTok{]}
+\KeywordTok{estimateSoilDepth}\NormalTok{(just.one)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 79
+\end{verbatim}
+
+Do this to make sure you know what your output will look like for the
+whole collection (it will be a \texttt{list}). Sometimes a function will
+fail for only certain pedons. This may reflect a data population error
+in that pedon or it may be a problem with the function's algorithm not
+accounting for the unique case of that pedon.
+
+This function is far more versatile than may first be apparent. By
+changing the default settings you can calculate other ``depth-to-X''
+type properties. You could add duripan or petrocalcic if that was
+relevant to your data. It doesn't have to be a `root-restriction' depth,
+either.
+
+Here are some (potentially) noncemented exampless: + depth to carbonates
+- match horizon with k or kk subscript -
+\texttt{estimateSoilDepth(pedon,\ p\ =\ \textquotesingle{}k?k\textquotesingle{})}
++ depth to gley (\textasciitilde{}2 chroma dominant color) -
+\texttt{estimateSoilDepth(pedon,\ p\ =\ \textquotesingle{}g\textquotesingle{})}
+
+\begin{quote}
+\texttt{estimateSoilDepth()} is a generic regex pattern matcher for any
+text-based / character field in a horizon specified by \texttt{name}.
+Using moist hue instead of horizon designation, you can, for example,
+estimate depth to 2.5YR moist hue:
+\texttt{estimateSoilDepth(pedon,\ name=\textquotesingle{}m\_hue\textquotesingle{},\ p=\textquotesingle{}\^{}2.5YR\textquotesingle{})}
+\end{quote}
+
+\href{https://www.regular-expressions.info/}{More about regex}
+
+Lets see how our depth to contact data look.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{#look at a density (frequency) plot; depth on x axis}
+\KeywordTok{plot}\NormalTok{(}\KeywordTok{density}\NormalTok{(depth.to.contact, }\DataTypeTok{na.rm =} \OtherTok{TRUE}\NormalTok{))}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{loafercreek_20181221_files/figure-latex/unnamed-chunk-5-1.pdf}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\KeywordTok{quantile}\NormalTok{(depth.to.contact, }\DataTypeTok{probs=}\KeywordTok{c}\NormalTok{(}\DecValTok{0}\NormalTok{,}\FloatTok{0.01}\NormalTok{,}\FloatTok{0.05}\NormalTok{,}\FloatTok{0.25}\NormalTok{,}\FloatTok{0.5}\NormalTok{,}\FloatTok{0.75}\NormalTok{,}\FloatTok{0.95}\NormalTok{,}\FloatTok{0.99}\NormalTok{,}\DecValTok{1}\NormalTok{), }\DataTypeTok{na.rm =} \OtherTok{TRUE}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##     0%     1%     5%    25%    50%    75%    95%    99%   100% 
+##  40.00  45.42  52.00  59.00  66.00  76.00  92.00  98.72 148.00
+\end{verbatim}
+
+Mostly moderately deep (50-100cm).
+
+We will compare the calculated values to those ``populated'' (i.e.~come
+with \texttt{loafercreek} dataset). If they match they will plot on the
+1:1 line. Based on the below result, we will replace the prior values
+with the new calculated values.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{#plot difference "populated v.s. calculated"}
+\KeywordTok{plot}\NormalTok{(loafercreek}\OperatorTok{$}\NormalTok{bedrckdepth }\OperatorTok{~}\StringTok{ }\NormalTok{depth.to.contact, }\DataTypeTok{xlim=}\KeywordTok{c}\NormalTok{(}\DecValTok{0}\NormalTok{,}\DecValTok{200}\NormalTok{), }\DataTypeTok{ylim=}\KeywordTok{c}\NormalTok{(}\DecValTok{0}\NormalTok{,}\DecValTok{200}\NormalTok{))}
+\KeywordTok{abline}\NormalTok{(}\DecValTok{0}\NormalTok{, }\DecValTok{1}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{loafercreek_20181221_files/figure-latex/unnamed-chunk-6-1.pdf}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{# some plot off the 1:1 line, lets take the calculated}
+\CommentTok{#overwrite populated with calculated depths (based on the po)}
+\NormalTok{loafercreek}\OperatorTok{$}\NormalTok{bedrckdepth <-}\StringTok{ }\NormalTok{depth.to.contact}
+\end{Highlighting}
+\end{Shaded}
+
+You can also define your own functions for use with
+\texttt{profileApply()}.
+
+This function defined below calculates the profile maximum clay content.
+It applies the function \texttt{max} to the attribute \texttt{clay} in a
+user-specified profile \texttt{p}. When called via profileApply,
+\texttt{p} is an individual pedon as the apply function iterates over
+the \texttt{loafercreek} profiles one-by-one.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{profileMaxClay <-}\StringTok{ }\ControlFlowTok{function}\NormalTok{(p, ...) \{}
+  \KeywordTok{return}\NormalTok{(}\KeywordTok{profile.univar.func}\NormalTok{(p, }\DataTypeTok{attr =} \StringTok{'clay'}\NormalTok{, }\DataTypeTok{fun=}\NormalTok{max))}
+\NormalTok{\}}
+\end{Highlighting}
+\end{Shaded}
+
+Apply \texttt{profileMaxClay()} to \texttt{loafercreek}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{loafercreek}\OperatorTok{$}\NormalTok{maxclay <-}\StringTok{ }\KeywordTok{profileApply}\NormalTok{(loafercreek, profileMaxClay)}
+\KeywordTok{plot}\NormalTok{(}\KeywordTok{density}\NormalTok{(loafercreek}\OperatorTok{$}\NormalTok{maxclay, }\DataTypeTok{na.rm=}\NormalTok{T))}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{loafercreek_20181221_files/figure-latex/unnamed-chunk-9-1.pdf}
+
+Here is the underlying generic function used for accessing a horizon
+level variable, performing a function using that variable as input, and
+returning the result. The generic is written so that the same underlying
+machinery can be used to create many convenience summary functions for
+multiple attributes.
+
+\begin{itemize}
+\tightlist
+\item
+  These are the arguments:
+\item
+  \texttt{spc} - an SPC; which generally should contain a single profile
+  (not enforced)
+\item
+  \texttt{attr} - a column name in \texttt{horizons(spc)}; e.g. `clay'
+\item
+  \texttt{fun} - an R function to be applied to \texttt{attr} in
+  \texttt{spc}; e.g. \texttt{max} to compute the maximum value of a
+  numeric vector
+\item
+  \texttt{na.rm} - default is \texttt{TRUE}; to remove NA values from
+  the list of inputs to \texttt{fun}
+\item
+  \texttt{...} - any subsequent arguments are passed to \texttt{fun} (in
+  addition to the \texttt{horizons(spc){[}{[}attr{]}{]}} data)
+\end{itemize}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{profile.univar.func <-}\StringTok{ }\ControlFlowTok{function}\NormalTok{(spc, attr, fun, }\DataTypeTok{na.rm =} \OtherTok{TRUE}\NormalTok{, ...) \{}
+  \CommentTok{#'attr' contains a column name in horizons data frame}
+\NormalTok{  d <-}\StringTok{ }\KeywordTok{horizons}\NormalTok{(spc)[[attr]]}
+  \CommentTok{#remove NAs}
+  \ControlFlowTok{if}\NormalTok{(na.rm)}
+\NormalTok{    d <-}\StringTok{ }\NormalTok{d[}\OperatorTok{!}\KeywordTok{is.na}\NormalTok{(d)]}
+  \CommentTok{#if input data empty after removing NA, return NA without calling function}
+  \CommentTok{#TODO: warning? pedonID list via profileApply()?}
+  \ControlFlowTok{if}\NormalTok{(}\OperatorTok{!}\KeywordTok{length}\NormalTok{(d)) }
+    \KeywordTok{return}\NormalTok{(}\OtherTok{NA}\NormalTok{)}
+  \CommentTok{#pass the data to 'fun' as a list along with any other arguments}
+\NormalTok{  rez <-}\StringTok{ }\KeywordTok{unlist}\NormalTok{(}\KeywordTok{do.call}\NormalTok{(fun, }\KeywordTok{list}\NormalTok{(d), ...))}
+  \CommentTok{#return the result}
+  \KeywordTok{return}\NormalTok{(rez)}
+\NormalTok{\}}
+\end{Highlighting}
+\end{Shaded}
+
+There are other generic functions for more complex behavior (involving
+multiple attributes, depth weighted averaging, application of taxonomic
+criteria etc.).
+
+\subsubsection{Application of pedon summary
+functions}\label{application-of-pedon-summary-functions}
+
+We will see if two common indicators of landscape stability and
+pedogenic development (clay content, and redness) are related within the
+soils correlated to Loafercreek. Generally, these soils are quite red.
+But in areas with thicker colluvial material on the surface or due to
+variation within the parent rock, the colors range duller and browner.
+In this setting, a soil that is red close to the surface is likely to
+stay quite red with depth. We will therefore calculate the depth to 5YR
+(or 2.5YR) dry hue as a surrogate for profile ``redness'' with the
+expectation that this will capture our reddest soils.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{loafercreek}\OperatorTok{$}\NormalTok{depth.to.5YR <-}\StringTok{ }\KeywordTok{profileApply}\NormalTok{(loafercreek, estimateSoilDepth, }\DataTypeTok{name=}\StringTok{'d_hue'}\NormalTok{, }\DataTypeTok{p=}\StringTok{'^5YR|^2.5YR'}\NormalTok{, }\DataTypeTok{no.contact.depth=}\DecValTok{150}\NormalTok{, }\DataTypeTok{no.contact.assigned=}\OtherTok{NA}\NormalTok{)}
+\KeywordTok{plot}\NormalTok{(}\DataTypeTok{main=}\StringTok{"Distribution of depth to 5YR or 2.5YR dry hue in Loafercreek"}\NormalTok{, }
+     \KeywordTok{density}\NormalTok{(loafercreek}\OperatorTok{$}\NormalTok{depth.to.5YR, }\DataTypeTok{na.rm =}\NormalTok{ T, }\DataTypeTok{from =} \DecValTok{0}\NormalTok{, }\DataTypeTok{to =} \DecValTok{100}\NormalTok{))}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{loafercreek_20181221_files/figure-latex/unnamed-chunk-11-1.pdf}
+
+Interesting. There might be two clusters here? Or just noise? Plot
+profile plots.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{sub1 <-}\StringTok{ }\NormalTok{(}\KeywordTok{subsetProfiles}\NormalTok{(loafercreek, }\DataTypeTok{s =} \StringTok{'depth.to.5YR > 40'}\NormalTok{))}
+\KeywordTok{plot}\NormalTok{(sub1)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## guessing horizon designations are stored in `hzname`
+\end{verbatim}
+
+\includegraphics{loafercreek_20181221_files/figure-latex/unnamed-chunk-12-1.pdf}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{sub2 <-}\StringTok{ }\NormalTok{(}\KeywordTok{subsetProfiles}\NormalTok{(loafercreek, }\DataTypeTok{s =} \StringTok{'depth.to.5YR <= 40'}\NormalTok{))}
+\KeywordTok{plot}\NormalTok{(sub2)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## guessing horizon designations are stored in `hzname`
+\end{verbatim}
+
+\includegraphics{loafercreek_20181221_files/figure-latex/unnamed-chunk-12-2.pdf}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\KeywordTok{aggregateColorPlot}\NormalTok{(}\KeywordTok{aggregateColor}\NormalTok{(loafercreek))}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{loafercreek_20181221_files/figure-latex/unnamed-chunk-13-1.pdf}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\KeywordTok{aggregateColorPlot}\NormalTok{(}\KeywordTok{aggregateColor}\NormalTok{(sub1))}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{loafercreek_20181221_files/figure-latex/unnamed-chunk-13-2.pdf}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\KeywordTok{aggregateColorPlot}\NormalTok{(}\KeywordTok{aggregateColor}\NormalTok{(sub2))}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{loafercreek_20181221_files/figure-latex/unnamed-chunk-13-3.pdf}
+In the full dataset, 5YR is the second most common hue after 7.5YR. 10YR
+hues basically only occur in the surface horizons or in lower gradtional
+horizons/bedrock.
+
+Both the full dataset and the first subset (greater than 40cm to 5YR or
+redder) have 7.5YR hue in the upper argillic (Bt1).
+
+In the subset of pedons less than 40cm to 5YR hues, the only 7.5YR chip
+in the Bt1 ius 7.5YR 4/6 (i.e.~on higher chroma side).
+
+So, it looks like there might be some decent separation on redness by
+separating the two clusters we observed in the density plot. It may be
+hard to see with so many profiles. The ones shallower to 5YR are redder
+/ higher chroma overall. Lets see if that lines up with our
+\texttt{maxclay} we just calculated\ldots{}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\KeywordTok{quantile}\NormalTok{(sub1}\OperatorTok{$}\NormalTok{maxclay, }\DataTypeTok{na.rm =}\NormalTok{ T, }\DataTypeTok{probs=}\KeywordTok{c}\NormalTok{(}\DecValTok{0}\NormalTok{,}\FloatTok{0.05}\NormalTok{,}\FloatTok{0.25}\NormalTok{,}\FloatTok{0.5}\NormalTok{,}\FloatTok{0.75}\NormalTok{,}\FloatTok{0.95}\NormalTok{,}\DecValTok{1}\NormalTok{))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##   0%   5%  25%  50%  75%  95% 100% 
+## 18.0 21.0 26.0 28.0 32.0 35.8 44.0
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\KeywordTok{quantile}\NormalTok{(sub2}\OperatorTok{$}\NormalTok{maxclay, }\DataTypeTok{na.rm =}\NormalTok{ T, }\DataTypeTok{probs=}\KeywordTok{c}\NormalTok{(}\DecValTok{0}\NormalTok{,}\FloatTok{0.05}\NormalTok{,}\FloatTok{0.25}\NormalTok{,}\FloatTok{0.5}\NormalTok{,}\FloatTok{0.75}\NormalTok{,}\FloatTok{0.95}\NormalTok{,}\DecValTok{1}\NormalTok{))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##   0%   5%  25%  50%  75%  95% 100% 
+## 18.0 20.5 26.2 34.0 38.5 50.7 60.0
+\end{verbatim}
+
+While the profiles have similar textures at the lower percentiles
+(surface horizons are similar texture), their medians differ by 6\% and
+their 95th percentiles by nearly 15\%. The soils with red colors closer
+to the surface have the higher max clay contents. That said, with these
+ranges, most of these pedons probably fall within the fine-loamy
+particle size family range and may just represent two end members within
+the series concept.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\KeywordTok{library}\NormalTok{(lattice)}
+\KeywordTok{library}\NormalTok{(grid)}
+\CommentTok{#are these all fine loamy? slabwise; then PSCS estimation}
+\CommentTok{#make grouping var}
+\NormalTok{loafercreek}\OperatorTok{$}\NormalTok{red.shallow <-}\StringTok{ }\NormalTok{loafercreek}\OperatorTok{$}\NormalTok{depth.to.5YR }\OperatorTok{<=}\StringTok{ }\DecValTok{40}
+
+\CommentTok{#calculate slabs}
+\NormalTok{loaf.slab <-}\StringTok{ }\KeywordTok{slab}\NormalTok{(loafercreek[}\OperatorTok{!}\KeywordTok{is.na}\NormalTok{(loafercreek}\OperatorTok{$}\NormalTok{red.shallow)], red.shallow }\OperatorTok{~}\StringTok{ }\NormalTok{clay)}
+
+\CommentTok{#(excluding slabs with contributing fraction < 15%)}
+\NormalTok{loaf.slab2 <-}\StringTok{ }\NormalTok{loaf.slab[loaf.slab}\OperatorTok{$}\NormalTok{contributing_fraction }\OperatorTok{>}\StringTok{ }\FloatTok{0.15}\NormalTok{,]}
+
+\CommentTok{#make lattice plot}
+\KeywordTok{xyplot}\NormalTok{(top }\OperatorTok{~}\StringTok{ }\NormalTok{p.q50 }\OperatorTok{|}\StringTok{ }\NormalTok{red.shallow, }\DataTypeTok{data=}\NormalTok{loaf.slab2, }
+       \DataTypeTok{main=}\StringTok{'Loafercreek - "shallow to 5YR hue" clay}\CharTok{\textbackslash{}n}\StringTok{ distribution with depth'}\NormalTok{,}
+       \DataTypeTok{ylab=}\StringTok{'Depth'}\NormalTok{,}
+             \DataTypeTok{xlab=}\StringTok{'median bounded by 25th and 75th percentiles'}\NormalTok{,}
+             \DataTypeTok{lower=}\NormalTok{loaf.slab2}\OperatorTok{$}\NormalTok{p.q25, }\DataTypeTok{upper=}\NormalTok{loaf.slab2}\OperatorTok{$}\NormalTok{p.q75, }
+             \DataTypeTok{xlim=}\KeywordTok{c}\NormalTok{(}\DecValTok{12}\NormalTok{, }\DecValTok{50}\NormalTok{),}
+             \DataTypeTok{ylim=}\KeywordTok{c}\NormalTok{(}\DecValTok{100}\NormalTok{,}\OperatorTok{-}\DecValTok{5}\NormalTok{),}
+             \DataTypeTok{panel=}\NormalTok{panel.depth_function, }
+             \DataTypeTok{prepanel=}\NormalTok{prepanel.depth_function,}
+             \DataTypeTok{cf=}\NormalTok{loaf.slab2}\OperatorTok{$}\NormalTok{contributing_fraction,}
+             \DataTypeTok{layout=}\KeywordTok{c}\NormalTok{(}\DecValTok{2}\NormalTok{,}\DecValTok{1}\NormalTok{), }\DataTypeTok{scales=}\KeywordTok{list}\NormalTok{(}\DataTypeTok{x=}\KeywordTok{list}\NormalTok{(}\DataTypeTok{alternating=}\DecValTok{1}\NormalTok{))}
+\NormalTok{             )}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{loafercreek_20181221_files/figure-latex/unnamed-chunk-15-1.pdf}
+
+Calculate the maximum clay content from the 1cm slab-wise medians
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{df <-}\StringTok{ }\KeywordTok{aggregate}\NormalTok{(loaf.slab2}\OperatorTok{$}\NormalTok{p.q50, }\DataTypeTok{by=}\KeywordTok{list}\NormalTok{(loaf.slab2}\OperatorTok{$}\NormalTok{red.shallow), }\DataTypeTok{FUN=}\NormalTok{max, }\DataTypeTok{na.rm =}\NormalTok{ T)}
+\KeywordTok{names}\NormalTok{(df) <-}\StringTok{ }\KeywordTok{c}\NormalTok{(}\StringTok{"red.shallow"}\NormalTok{,}\StringTok{"maxclay.q50"}\NormalTok{)}
+\NormalTok{df}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##   red.shallow maxclay.q50
+## 1       FALSE    27.53739
+## 2        TRUE    31.81839
+\end{verbatim}
+
+Almost a 4.2809964 clay difference there.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{#do spatial example.. can we predict where the red/clayey ones are?}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{#bring in the shallow and skeletal and deep data :)}
+\end{Highlighting}
+\end{Shaded}
+
+
+\end{document}

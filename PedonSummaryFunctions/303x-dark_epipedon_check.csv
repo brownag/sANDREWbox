@@ -1,0 +1,7 @@
+"","peiid","diag_kind","featdept","featdepb","thickness","dsubound","dslbound","is_ochric","pedon_id","tmatch","bmatch","match"
+"1",1193388,"umbric epipedon",3,39,36,3,39,FALSE,"2017CA6306096",TRUE,TRUE,TRUE
+"2",1225708,"umbric epipedon",4,64,60,0,88,TRUE,"2017CA6306091N",FALSE,FALSE,FALSE
+"3",1225709,"umbric epipedon",6,30,24,0,52,TRUE,"2017CA6306090N",FALSE,FALSE,FALSE
+"4",1225711,"umbric epipedon",0,43,43,0,18,TRUE,"2017CA6306093N",TRUE,FALSE,FALSE
+"5",1225718,"umbric epipedon",6,38,32,6,24,FALSE,"2017CA6306118",TRUE,FALSE,FALSE
+"6",1225725,"umbric epipedon",3,47,44,3,103,FALSE,"2017CA6306125",TRUE,FALSE,FALSE

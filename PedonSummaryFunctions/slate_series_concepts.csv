@@ -1,0 +1,5 @@
+series,restr_type,restr_top,restr_bottom,pscs_class,surface_txt_class,surf_pH_lo,surf_pH_hi,surf_clay_lo,surf_clay_hi,arg_txt_class,arg_pH_lo,arg_pH_hi,pscs_clay_lo,pscs_clay_hi,pscs_frag_lo,pscs_frag_hi,notes
+Copperopolis,lithic,25,50,loamy-skeletal,CN-L,moderately acid,slightly acid,16,22,"CN-L,CNV-L,CNX-L,GRX-L",moderately acid,slightly acid,18,24,30,90,
+Donpedro,lithic,50,100,fine-loamy,"SL,L",slightly acid,neutral,10,20,"L,SL,SCL",very strongly acid,neutral,15,35,0,20,
+Saddlemod,lithic,50,100,loamy-skeletal,"L,CN-L",moderately acid,slightly acid,12,25,"GR-L,CN-L,CNV-L,CNX-L",strongly acid,slightly acid,18,30,30,90,
+Wukusick,paralithic,200,300,fine,"L,SL",strongly acid,neutral,14,27,"CL,C,GR-C,GR-CL,SCL,GR-SCL",moderately acid,slightly acid,35,50,0,20,
