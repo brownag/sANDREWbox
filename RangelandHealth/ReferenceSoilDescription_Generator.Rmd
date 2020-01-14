@@ -5,14 +5,14 @@ output: html_document
 params:
   ecositeid:
     label: "Ecological Site ID:"
-    value: "R018XI163CA"
+    value: "F018XI200CA"
     input: text
   majorcompswitch:
     label: "Major components only?"
     value: TRUE
   ignorecompname:
     label: "Ignore component names:"
-    value: "Peters,Cometa"
+    value: "foo"
     input: text
 ---
 
