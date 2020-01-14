@@ -1,0 +1,137 @@
+userpedonid,series,taxonomy,taxonkind,labpedonid
+09BJM030,Wallyhill,"Fine-loamy, mixed, semiactive, mesic Ultic Haploxeralfs",Series,10N0899
+65-CA-05-001x,Whiterock,"Loamy, mixed, superactive, nonacid, thermic Lithic Xerorthents",Series,UCD6505001
+65-CA-05-002x,Whiterock,"Loamy, mixed, superactive, nonacid, thermic Lithic Xerorthents",Series,UCD6505002
+65-CA-05-003x,Iron Mountain,"Loamy, mixed, superactive, nonacid, mesic Lithic Xerorthents",Taxadjunct,UCD6505003
+65-CA-05-005x,Auburn,"Loamy, mixed, superactive, thermic Lithic Haploxerepts",Series,UCD6505005
+66-CA-05-006x,Whiterock,"Loamy, mixed, superactive, thermic Lithic Haploxerepts",Taxadjunct,UCD6605006
+66-CA-05-007x,Loafercreek,"Fine-loamy, mixed, active, thermic Ultic Haploxeralfs",Taxadjunct,UCD6605007
+66-CA-05-008x,Auburn,"Loamy, mixed, superactive, thermic Lithic Haploxerepts",Series,UCD6605008
+66-CA-05-009x,"Coarse-loamy, mixed, active, mesic Typic Humixerepts","Coarse-loamy, mixed, active, mesic Typic Humixerepts",<Null>,UCD6605009
+66-CA-05-012x,Fuches,"Mixed, mesic Lithic Xeropsamments",Taxadjunct,UCD6605012
+66-CA-05-014x,Auburn,"Loamy, mixed, superactive, thermic Lithic Haploxerepts",Series,UCD6605014
+66-CA-05-015x,Goldwall,"Loamy, mixed, superactive, thermic Lithic Ultic Haploxerolls",Taxadjunct,UCD6605015
+66-CA-05-016x,"Fine, mixed, superactive, thermic Typic Haploxeralfs","Fine, mixed, superactive, thermic Typic Haploxeralfs",<Null>,UCD6605016
+66-CA-05-017x,Donpedro,"Fine-loamy, mixed, superactive, thermic Typic Haploxerepts",Taxadjunct,UCD6605017
+66-CA-05-018x,Argonaut,"Fine, mixed, superactive, thermic Mollic Haploxeralfs",Series,UCD6605018
+66-CA-05-019x,Argonaut,"Fine, mixed, superactive, thermic Mollic Palexeralfs",Taxadjunct,UCD6605019
+67-CA-05-020x,Loafercreek,"Fine-loamy, mixed, superactive, thermic Ultic Haploxeralfs",Series,UCD6705020
+67-CA-05-021x,Loafercreek,"Fine-loamy, mixed, superactive, thermic Humic Haploxerepts",Taxadjunct,UCD6705021
+67-CA-05-022x,Auburn,"Loamy, mixed, superactive, thermic Lithic Haploxeralfs",Taxadjunct,UCD6705022
+67-CA-05-023x,Donpedro,"Loamy, mixed, superactive, thermic Lithic Haploxeralfs",Taxadjunct,UCD6705023
+67-CA-05-024x,Luckymine,"Loamy, mixed, superactive, thermic Lithic Haploxerepts",Taxadjunct,UCD6705024
+67-CA-05-025x,"Fine-loamy, mixed, active, mesic Ultic Haploxeralfs","Fine-loamy, mixed, active, mesic Ultic Haploxeralfs",<Null>,UCD6705025
+67-CA-05-026x,Trabuco,"Fine, mixed, superactive, thermic Mollic Palexeralfs",Taxadjunct,UCD6705026
+67-CA-05-027x,"Fine, smectitic, thermic Leptic Haploxererts","Fine, smectitic, thermic Leptic Haploxererts",<Null>,UCD6705027
+67-CA-05-028x,Musick,"Fine-loamy, mixed, semiactive, mesic Ultic Palexeralfs",Taxadjunct,UCD6705028
+67-CA-05-029x,Ultic Haploxerolls,"Coarse-loamy, active, mesic Ultic Haploxerolls",Family,UCD6705029
+67-CA-05-030x,Musick,"Fine-loamy, mixed, semiactive, mesic Ultic Haploxeralfs",Series,UCD6705030
+67-CA-05-031x,Typic Haploxerults,"Loamy-skeletal, mixed, active, mesic Typic Haploxerults",Family,UCD6705031
+67-CA-05-032x,Holland,"Fine-loamy, mixed, semiactive, mesic Ultic Haploxeralfs",Series,UCD6705032
+67-CA-05-033x,Nedsgulch,"Fine-loamy, mixed, semiactive, mesic Xeric Palehumults",Taxadjunct,UCD6705033
+67-CA-05-034x,Sites,"Fine, parasesquic, mesic Xeric Haplohumults",Series,UCD6705034
+67-CA-05-035x,Wallyhill,"Fine-loamy, mixed, active, mesic Typic Haploxerepts",Taxadjunct,UCD6705035
+67-CA-05-037x,Supan,"Fine-loamy, mixed, superactive, mesic Pachic Ultic Haploxerolls",Taxadjunct,UCD6705037
+67-CA-05-038x,Holland,"Fine-loamy, mixed, semiactive, mesic Ultic Haploxeralfs",Series,UCD6705038
+67-CA-05-039x,Andihasset,"Fine, mixed, superactive, mesic Ultic Palexeralfs",Taxadjunct,UCD6705039
+67-CA-05-041x,"Holland, thick colluvium","Fine-loamy, mixed, semiactive, mesic Ultic Haploxeralfs",Series,UCD6705041
+67-CA-05-042x,Fiddletown,"Loamy-skeletal, mixed, superactive, mesic, micro Humic Dystroxerepts",Taxadjunct,UCD6705042
+67-CA-55-001x,Goldwall,"Loamy, mixed, superactive, thermic Lithic Dystroxerepts",Taxadjunct,UCD6755001
+67-CA-55-002x,Goldwall,"Loamy, mixed, superactive, thermic Lithic Humixerepts",Taxadjunct,UCD6755002
+67-CA-55-003x,"Fine-loamy, mixed, superactive, thermic ultic haploxeralfs","Fine-loamy, mixed, superactive, thermic Ultic Haploxeralfs",Family,UCD6755003
+67-CA-55-004x,Goldwall,"Loamy, mixed, superactive, thermic Lithic Dystroxerepts",Taxadjunct,UCD6755004
+67-CA-55-005x,Goldwall,"Loamy, mixed, superactive, thermic Lithic Dystroxerepts",Taxadjunct,UCD6755005
+71-CA-05-056x,Pardee,"Clayey, mixed, active, thermic, shallow Ultic Haploxeralfs",Taxadjunct,UCD7105056
+71-CA-05-057x,Red Bluff,"Fine, kaolinitic, thermic Ultic Palexeralfs",Series,UCD7105057
+71-CA-05-058x,"Fine, mixed, active, thermic Ultic Palexeralfs","Fine, mixed, active, thermic Ultic Palexeralfs",<Null>,UCD7105058
+71-CA-05-059x,Angelscreek,"Loamy-skeletal, mixed, superactive, thermic Ultic Haploxeralfs",Taxadjunct,UCD7105059
+71-CA-05-060x,Amador,"Loamy, mixed, superactive, thermic, shallow Typic Haploxerepts",Series,UCD7105060
+71-CA-05-061x,"Fine-loamy, mixed, superactive, thermic Mollic Haploxeralfs","Fine-loamy, mixed, superactive, thermic Mollic Haploxeralfs",<Null>,UCD7105061
+71-CA-05-062x,Ultic Haploxeralfs,"Fine-loamy, mixed, active, thermic Ultic Haploxeralfs",<Null>,UCD7105062
+73-CA-05-063x,Luckymine,"Loamy, mixed, superactive, thermic Lithic Humixerepts",Taxadjunct,UCD7305063
+73-CA-05-064x,Priestgrade,"Loamy-skeletal, mixed, superactive, acid, thermic Lithic Xerorthents",Taxadjunct,UCD7305064
+73-CA-05-065x,Trabuco,"Fine-loamy, mixed, superactive, thermic Typic Haploxerepts",Taxadjunct,UCD7305065
+73-CA-05-066x,Rescue,"Fine-loamy, superactive, thermic Typic Haploxeralfs",Taxadjunct,UCD7305066
+73-CA-05-067x,Wukusick,"Fine, mixed, subactive, mesic Ultic Palexeralfs",Series,UCD7305067
+73-CA-05-068x,Typic Dystroxerepts,"Coarse-loamy, mixed, superactive, mesic Typic Dystroxerepts",Family,UCD7305068
+73-CA-05-069x,Hotaw,"Fine-loamy, mixed, active, mesic Ultic Haploxeralfs",Series,UCD7305069
+73-CA-05-070x,Millvilla,"Fine-loamy, mixed, superactive, thermic Typic Haploxerepts",Taxadjunct,UCD7305070
+73-CA-05-071x,SND - possible Henneke,"Clayey-skeletal, magnesic, thermic Lithic Argixerolls",Taxadjunct,UCD7305071
+73-CA-05-073x,Hennekenot,"Loamy-skeletal, magnesic, thermic Lithic Mollic Haploxeralfs",Taxadjunct,UCD7305073
+73-CA-05-074x,Fancher,"Fine, magnesic, thermic Pachic Palexerolls",Taxadjunct,UCD7305074
+73-CA-05-075x,"Fine, mixed, superactive, mesic Typic Argixerolls","Fine, mixed, superactive, mesic Typic Argixerolls",<Null>,UCD7305075
+73-CA-05-076x,Millvilla,"Fine, mixed, superactive, thermic Typic Haploxerepts",Taxadjunct,UCD7305076
+73-CA-55-009x,Loafercreek,"Fine-loamy, mixed, superactive, thermic Ultic Haploxeralfs",Series,UCD7355009
+73-CA-55-010x,Auburn,"Loamy, mixed, active, thermic Lithic Haploxerepts",Taxadjunct,UCD7355010
+73-CA-55-011x,Auburn,"Loamy, mixed, superactive, thermic Humic Lithic Dystroxerepts",Taxadjunct,UCD7355011
+73-CA-55-012x,Delpiedra,"Loamy, magnesic, thermic Lithic Mollic Haploxeralfs",Taxadjunct,UCD7355012
+73-CA-55-013x,Delpiedra,"Loamy, magnesic, thermic Lithic Haploxerepts",Taxadjunct,UCD7355013
+73-CA-55-014x,Priestgrade,"Loamy-skeletal, mixed, superactive, thermic Lithic Haploxerepts",Series,UCD7355014
+73-CA-55-016x,Pentz,"Loamy, mixed, superactive, thermic, shallow Ultic Haploxerolls",Series,UCD7355016
+73-CA-55-017x,?,"Fine, mixed, active, thermic Typic Haploxerepts",Family,UCD7355017
+74-CA-05-077x,Whiterock,"Loamy, mixed, superactive, nonacid, thermic, shallow Typic Xerorthents",Taxadjunct,UCD740577
+74-CA-55-019x,Auburn,"Loamy, mixed, superactive, thermic Lithic Haploxerepts",Series,UCD7455019
+74-CA-55-021x,Auburn,"Loamy, mixed, superactive, thermic Lithic Haploxerepts",Series,UCD7455021
+75-CA-05-078x,Whiterock,"Loamy, mixed, superactive, acid, thermic Lithic Xerorthents",Series,UCD7505078
+75-CA-55-023x,Mariposa,"Fine, mixed, mesic Typic Haploxerults",Taxadjunct,UCD7555023
+75-CA-55-024x,"Ly-Skel, Mixed, Active, Mesic, Typic Dystroxerepts","Loamy-skeletal, mixed, active, mesic Typic Dystroxerepts",Family,UCD7555024
+75-CA-55-025x,Wallyhill,"Fine-loamy, mixed, semiactive, mesic Ultic Haploxeralfs",Series,UCD7555025
+75-CA-55-026x,Flanly,"Fine-loamy, mixed, superactive, thermic Ultic Haploxeralfs",Series,UCD7555026
+75-CA-55-028x,Hotaw,"Fine-loamy, mixed, superactive, mesic Ultic Haploxeralfs",Taxadjunct,UCD7555028
+75-CA-55-029x,Flanly,"Fine-loamy, mixed, superactive, thermic Ultic Haploxeralfs",Series,UCD7555029
+75-CA-55-030x,Luckymine,"Loamy, mixed, superactive, thermic Lithic Haploxerolls",Taxadjunct,UCD7555030
+75-CA-55-031x,Flanly,"Fine-loamy, mixed, superactive, thermic Ultic Haploxeralfs",Series,UCD7555031
+76-CA-55-032x,Priestgrade,"Loamy-skeletal, mixed, superactive, acid, thermic Lithic Xerorthents",Taxadjunct,UCD7655032
+76-CA-55-033x,Priestgrade,"Loamy-skeletal, mixed, superactive, thermic Lithic Haploxerepts",Taxadjunct,UCD7655033
+76-CA-55-034x,Priestgrade,"Loamy-skeletal, mixed, active, thermic Humic Lithic Haploxerepts",Series,UCD7655034
+76-CA-55-035x,Priestgrade,"Loamy, mixed, superactive, thermic Lithic Ultic Haploxerolls",Taxadjunct,UCD7655035
+77-CA-55-036x,Holland,"Fine-loamy, mixed, semiactive, mesic Ultic Haploxeralfs",Series,UCD7755036
+77-CA-55-037x,Chaix,"Coarse-loamy, mixed, active, mesic Typic Humixerepts",Taxadjunct,UCD7755037
+77-CA-55-038x,Millvilla,"Fine, mixed, semiactive, thermic Typic Rhodoxeralfs",Taxadjunct,UCD7755038
+77-CA-55-039x,Sierra,"Fine-loamy, mixed, active, thermic Ultic Argixerolls",Taxadjunct,UCD7755039
+77-CA-55-040x,Loafercreek,"Fine-loamy, mixed, superactive, thermic Ultic Haploxeralfs",Series,UCD7755040
+77-CA-55-041x,Exchequer,"Loamy, mixed, superactive, nonacid, thermic Lithic Xerorthents",Series,UCD7755041
+77-CA-55-042x,Whiterock,"Loamy, mixed, superactive, nonacid, thermic Lithic Xerorthents",Series,UCD7755042
+77-CA-55-043x,Delpiedra,"Loamy, magnesic, thermic Lithic Rhodoxeralfs",Taxadjunct,UCD7755043
+77-CA-55-044x,Supan,"Coarse-loamy, mixed, superactive, mesic Pachic Ultic Haploxerolls",Taxadjunct,UCD7755044
+77-CA-55-045x,Musick,"Fine-loamy, mixed, active, mesic Typic Palexerults",Taxadjunct,UCD7755045
+77-CA-55-046x,Musick,"Fine-loamy, mixed, semiactive, mesic Ultic Haploxeralfs",Series,UCD7755046
+80-CA-05-079x,Mckeonhills,"Very-fine, smectitic, thermic Aridic Haploxererts",Taxadjunct,UCD8005079
+80-CA-05-080x,Amador,"Loamy, mixed, superactive, thermic Lithic Dystroxerepts",Taxadjunct,UCD8005080
+80-CA-05-082x,Contra Costa,"Fine, mixed, superactive, thermic Mollic Palexeralfs",Taxadjunct,UCD8005082
+80-CA-05-083x,Auburn,"Loamy, mixed, superactive, thermic Lithic Haploxerepts",Series,UCD8005083
+80-CA-05-084x,Pardee,"Loamy-skeletal, mixed, superactive, thermic, shallow Mollic Haploxeralfs",Taxadjunct,UCD8005084
+80-CA-05-085x,"Fine, mixed, superactive, thermic Typic Palexeralf","Fine, mixed, superactive, thermic Typic Palexeralfs",<Null>,UCD8005085
+80-CA-05-086x,"Loamy, mixed, superactive, thermic, shallow Entic Humixerept","Loamy, mixed, superactive, thermic, shallow Entic Humixerepts",<Null>,UCD8005086
+80-CA-05-087x,Hornitos,"Loamy, mixed, superactive, thermic Humic Lithic Haploxerepts",Taxadjunct,UCD8005087
+80-CA-05-088x,Amador,"Loamy, superactive, thermic Lithic Dystroxerepts",Taxadjunct,UCD8005088
+S04-hwy49-719,Typic Haploxeralfs,"Coarse-loamy over fragmental, mixed, superactive, thermic Typic Haploxeralfs",<Null>,UCD04HY49719
+S04-hwy49-720,Typic Haploxeralfs,"Fine-loamy, mixed, active, thermic Typic Haploxeralfs",<Null>,UCD04HY49720
+S07CA009003,Mantree,"Fine-loamy, mixed, semiactive, mesic Xeric Haplohumults",Taxadjunct,08N0157
+S07CA009004,Andihasset,"Fine, isotic, mesic Xeric Palehumults",Taxadjunct,08N0158
+S07CA009005,Lilygap,"Medial over loamy, amorphic over isotic, mesic Alfic Humic Haploxerands",Series,08N0159
+S07CA009006,Jocal,"Coarse-loamy, mixed, active, mesic Typic Dystroxerepts",Taxadjunct,08N0160
+S07CA009008,McCarthy,"Loamy-skeletal, isotic, mesic Andic Humixerepts",Taxadjunct,08N0161
+S08CA009001,Nedsgulch,"Fine-loamy, mixed, semiactive, mesic Ultic Palexeralfs",Series,08N0691
+S08CA009002,Sites,"Fine, parasesquic, mesic Xeric Haplohumults",Series,08N0692
+S08CA009003,Mantree,"Fine-loamy, isotic, mesic Andic Palexeralfs",Series,08N0693
+S08CA109001,Deerflat,"Fine-loamy, mixed, semiactive, thermic Ultic Argixerolls",Series,08N0694
+S08CA109002,Moccasinhill,"Loamy-skeletal, mixed, active, thermic Ultic Haploxeralfs",Taxadjunct,08N0695
+S08CALATIGO-001,Loafercreek,"Fine, mixed, semiactive, thermic Ultic Palexeralfs",Taxadjunct,UCD08LAT001
+S09CA009001,Jocal,"Fine, kaolinitic, mesic Typic Haploxerults",Taxadjunct,09N0865
+S09CA009002,Loafercreek,"Fine-loamy, mixed, superactive, thermic Ultic Haploxeralfs",Series,09N0866
+S09CA009003,Wallyhill,"Fine-loamy, mixed, semiactive, mesic Xeric Haplohumults",Taxadjunct,09N0867
+S09CA009005,Andihasset,"Fine-loamy, isotic, mesic Xeric Haplohumults",Taxadjunct,10N0443
+S09CA009006,Lilygap,"Fine-loamy, isotic, mesic Vitrandic Palexeralfs",Taxadjunct,10N0444
+S09CA009007,Devilsnose,"Medial over loamy-skeletal, mixed over isotic, mesic Alfic Humic Vitrixerands",Series,10N0445
+S09CA109001,Crimeahouse,"Loamy-skeletal, magnesic, thermic Mollic Haploxeralfs",Series,09N0868
+S09CA109002,Crimeadark,"Clayey-skeletal, magnesic, thermic Mollic Haploxeralfs",Series,09N0869
+S09CA109003,Auberry,"Fine-loamy, mixed, active, thermic Ultic Argixerolls",Taxadjunct,09N0870
+S09CA109004,Aquic Argixerolls,"Loamy-skeletal, mixed, superactive, thermic Aquic Argixerolls",Series,09N0871
+S09CA109005,Typic Haploxerepts,"Coarse-loamy, mixed, semiactive, mesic Typic Haploxerepts",Taxon above family,09N0872
+S09CAL-001,Exchequer,"Loamy-skeletal, mixed, superactive, nonacid, thermic Lithic Xerorthents",Series,UCD09L001
+S09CAL-002,Auburn,"Loamy, mixed, superactive, thermic, shallow Ultic Haploxeralfs",Taxadjunct,UCD09L002
+S1958CA039001,POZO,"Fine-loamy, mixed, thermic Cambidic Durixerolls",<Null>,40A3041
+S2017CA109001,Argonaut,"Fine, mixed, superactive, thermic Ultic Haploxeralfs",Taxadjunct,17N0825
+SO4-hwy49-716,Trabuco,"Fine, mixed, superactive, thermic Ultic Haploxeralfs",Series,UCDO4HY49716
+SO4-hwy49-717,Redding,"Fine, mixed, active, thermic Haplic Durixeralfs",Taxadjunct,UCDO4HY49717
