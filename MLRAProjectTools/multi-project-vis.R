@@ -12,11 +12,11 @@
 # SETUP
 #####
 # set your working directory for output file
-setwd("S:/NRCS/430 SOI Soil Survey/430-05 Soil Survey Area Case Files/Projects/EVAL projects/2019 Projects/Sierra_EVAL")
+setwd("S:/NRCS/430 SOI Soil Survey/430-05 Soil Survey Area Case Files/Projects/FY20 Projects/MLRA 18 - Auburn & Blasingame 999 in CA649/")
 #setwd("E:/CA649/")
 
 # filter on project name
-p.pattern <- "Sierra"
+p.pattern <- "Auburn"
 
 # filter on MLRA shapefile (for extent map)
 mlra.pattern <- "18"
@@ -27,10 +27,10 @@ project.extent.file <- "" #"E:/CA649/ca649_mvo_FY2020.shp"
 output.utm.zone <- "10"
 
 #output file prefix
-out.file.prefix <- "FY19_Sierra_EVAL"
+out.file.prefix <- "FY20_AuburnBlasingame"
 
 # name of shapefile output
-shp.file.name <- "FY19_Sierra_EVAL" # no .shp extension
+shp.file.name <- "FY20_AuburnBlasingame" # no .shp extension
 #####
 
 library(aqp)
