@@ -1,0 +1,99 @@
+id,name,attr
+1,ExifTool Path,exiftool_path
+2,ExifTool Version Number,etversion
+3,File Name,filename
+4,Directory,directory
+5,File Size,filesize
+6,File Modification Date/Time,lastmodified
+7,File Access Date/Time,lastaccessed
+8,File Creation Date/Time,created
+9,File Permissions,permissions
+10,File Type,filetype
+11,File Type Extension,extension
+12,MIME Type,mimetype
+13,JFIF Version,jfifversion
+14,Exif Byte Order,exifbyteorder
+15,Make,make
+16,Camera Model Name,model
+17,Orientation,orientation
+18,X Resolution,xres
+19,Y Resolution,yres
+20,Resolution Unit,resunit
+21,Software,software
+22,Modify Date,modified
+23,Y Cb Cr Positioning,ycbcrpos
+24,Exposure Time,exptime
+25,F Number,fnumber
+26,Exposure Program,expprog
+27,ISO,iso
+28,Exif Version,exifversion
+29,Date/Time Original,orig_datetime
+30,Create Date,create_date
+31,Components Configuration,components
+32,Shutter Speed Value,shutterspeed_val
+33,Aperture Value,aperture_val
+34,Brightness Value,brightness_val
+35,Exposure Compensation,exposurecomp
+36,Metering Mode,metermode
+37,Flash,flash
+38,Focal Length,focallen
+39,Subject Area,subjectarea
+40,Run Time Flags,runtimeflag
+41,Run Time Value,runtimeval
+42,Run Time Epoch,runtimeepoch
+43,Run Time Scale,runtimescale
+44,Acceleration Vector,accel
+45,Sub Sec Time Original,subsectime
+46,Sub Sec Time Digitized,subsectime_digi
+47,Flashpix Version,flashpix_version
+48,Color Space,colorspace
+49,Exif Image Width,exif_imagewidth
+50,Exif Image Height,exif_imageheight
+51,Sensing Method,sensingmethod
+52,Scene Type,scenetype
+53,Exposure Mode,expmode
+54,White Balance,whitebal
+55,Focal Length In 35mm Format,focallen_35mm
+56,Scene Capture Type,scenecaptype
+57,Lens Info,lensinfo
+58,Lens Make,lensmake
+59,Lens Model,lensmodel
+60,Offset Schema,offset_schema
+61,GPS Latitude Ref,gps_lat_ref
+62,GPS Longitude Ref,gps_lng_ref
+63,GPS Altitude,gps_alt
+64,GPS Time Stamp,gps_timestamp
+65,GPS Speed Ref,gps_speed_ref
+66,GPS Speed,gps_speed
+67,GPS Track Ref,gps_track_ref
+68,GPS Track,gps_track
+69,GPS Date Stamp,gps_datestamp
+70,Padding,padding
+71,Compression,compression
+72,Thumbnail Offset,thumbnail_off
+73,Thumbnail Length,thumbnail_len
+74,IPTC Digest,iptc_digest
+75,About,about
+76,Creator Tool,creator_tool
+77,Image Width,image_width
+78,Image Height,image_height
+79,Encoding Process,encoding_proc
+80,Bits Per Sample,bps
+81,Color Components,color_comp
+82,Y Cb Cr Sub Sampling,ycbcr_subsample
+83,Aperture,aperture
+84,GPS Date/Time,gps_datetime
+85,GPS Latitude,gps_latitude
+86,GPS Longitude,gps_longitude
+87,GPS Position,gps_pos
+88,Image Size,image_size
+89,Megapixels,megapixels
+90,Run Time Since Power Up,run_time
+91,Scale Factor To 35 mm Equivalent,scale_factor_35mm
+93,Shutter Speed,shutterspeed
+94,Date/Time Original,datetime_orig
+95,Thumbnail Image,thumbnail_img
+96,Circle Of Confusion,coc
+98,Field Of View,fov
+99,Hyperfocal Distance,hy_fo_dist
+100,Light Value,light_val

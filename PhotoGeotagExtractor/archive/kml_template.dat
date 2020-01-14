@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2">
+  <Document>
+    <Schema id="schema0" name="schema0">
+      <SimpleField name="Description" type="string"/>
+      <SimpleField name="pdfmaps_photos" type="string">
+        <displayName>Photos</displayName>
+      </SimpleField>
+    </Schema>
+    <Folder>
+      <styleUrl>#style0</styleUrl>
+      <name>%%%FOLDERNAME%%%</name>
+      <ExtendedData>
+        <SchemaData schemaUrl="#schema0"/>
+      </ExtendedData>
+%%%PLACEMARKS%%%
+    </Folder>
+    <Style id="style0">
+      <IconStyle>
+        <Icon>
+          <href>http://download.avenza.com/images/pdfmaps_icons/v2/pin-red-inground.png</href>
+        </Icon>
+        <hotSpot x="9" xunits="pixels" y="0" yunits="pixels"/>
+      </IconStyle>
+      <LineStyle>
+        <color>ff0095ff</color>
+        <width>5</width>
+      </LineStyle>
+    </Style>
+  </Document>
+</kml>
