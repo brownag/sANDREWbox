@@ -1,0 +1,109 @@
+---
+title: "CA630 Lab Pedons"
+author: "Andrew Brown"
+date: "September 14, 2018"
+output: html_document
+---
+
+```{r, echo=F, message=F, warning=F}
+get_site_mu_overlap_from_NASIS_db <- function() {
+  if(!requireNamespace('RODBC'))
+    stop('please install the `RODBC` package', call.=FALSE)
+  q <- "SELECT smuoviid as smuoviid, siteiidref, lmapunitiidref, recwlupdated, recuseriidref FROM sitemuoverlap;"
+  channel <- RODBC::odbcDriverConnect(connection="DSN=nasis_local;UID=NasisSqlRO;PWD=nasisRe@d0n1y")
+  d <- RODBC::sqlQuery(channel, q, stringsAsFactors=FALSE)
+  RODBC::odbcClose(channel)
+  return(d)
+}
+
+get_legend_mu_from_NASIS_db <- function() {
+  if(!requireNamespace('RODBC'))
+    stop('please install the `RODBC` package', call.=FALSE)
+  q <- "SELECT lmapunitiid as liidref, lmapunitiid, musym, muiidref, mustatus, muacres, farmlndcl, farmlndclsec, recwlupdated, recuseriidref FROM lmapunit;"
+  channel <- RODBC::odbcDriverConnect(connection="DSN=nasis_local;UID=NasisSqlRO;PWD=nasisRe@d0n1y")
+  d <- RODBC::sqlQuery(channel, q, stringsAsFactors=FALSE)
+  RODBC::odbcClose(channel)
+  return(d)
+}
+
+get_pedon_taxhistory_from_NASIS_db <- function() {
+  if(!requireNamespace('RODBC'))
+    stop('please install the `RODBC` package', call.=FALSE)
+  q <- "SELECT peiidref, classdate, classtype, classifier, taxonname, localphase, taxonkind, taxclname, osdtypelocflag, petaxhistoryiid FROM petaxhistory;"
+  channel <- RODBC::odbcDriverConnect(connection="DSN=nasis_local;UID=NasisSqlRO;PWD=nasisRe@d0n1y")
+  d <- RODBC::sqlQuery(channel, q, stringsAsFactors=FALSE)
+  RODBC::odbcClose(channel)
+  return(d)
+}
+
+get_sitedatagroup_from_NASIS_db <- function() {
+  if(!requireNamespace('RODBC'))
+    stop('please install the `RODBC` package', call.=FALSE)
+  q <- "SELECT grpiidref, grpname, siteiid FROM site INNER JOIN nasisgroup ON nasisgroup.grpiid = site.grpiidref;"
+  channel <- RODBC::odbcDriverConnect(connection="DSN=nasis_local;UID=NasisSqlRO;PWD=nasisRe@d0n1y")
+  d <- RODBC::sqlQuery(channel, q, stringsAsFactors=FALSE)
+  RODBC::odbcClose(channel)
+  return(d)
+}
+
+get_sampled_as <- function(df) {
+  sampled.as.idx <- which(df$classtype == 'sampled as')
+  if(length(sampled.as.idx)) {
+    if(length(sampled.as.idx) > 1) {
+      df.sub <- df[sampled.as.idx,]
+      return(df.sub[which(df.sub$classdate == min(df.sub$classdate)),][1,])
+    } else {
+      return(df[sampled.as.idx,][1,])
+    }
+  } else {
+    return(df[which(df$classdate == min(df$classdate)),][1,])
+  }
+}
+
+get_correlated <- function(df) {
+  correlated.idx <- which(df$classtype == 'correlated')
+  if(length(correlated.idx)) {
+    if(length(correlated.idx) > 1) {
+      df.sub <- df[correlated.idx,]
+      return(df.sub[which(df.sub$classdate == max(df.sub$classdate)),][1,])
+    } else {
+      return(df[correlated.idx,][1,])
+    }
+  } else {
+    return(df[which(df$classdate == max(df$classdate)),][1,])
+  }
+}
+
+library(knitr)
+library(soilDB)
+f <- fetchNASIS()
+f.sub <- f[which(f$pedonpurpose == 'laboratory sampling site'),]
+
+f.tax <- uncode(get_pedon_taxhistory_from_NASIS_db())
+f.aol <- get_site_mu_overlap_from_NASIS_db()
+f.legend <- get_legend_mu_from_NASIS_db()
+
+f.mapunit <- merge(f.legend, f.aol, by.x="lmapunitiid", by.y="lmapunitiidref")
+df.sampled.as <- do.call('rbind', lapply(split(f.tax, f=f.tax$peiidref), get_sampled_as))
+df.correlated <- do.call('rbind', lapply(split(f.tax, f=f.tax$peiidref), get_correlated))
+
+f.sub.1 <- merge(site(f.sub), data.frame(peiid=df.sampled.as$peiidref, sampled_as=df.sampled.as$taxonname), by="peiid", all.x=T)
+
+f.sub.2 <- merge(f.sub.1, f.mapunit[,c('siteiidref','musym')], by.x = "siteiid", by.y="siteiidref", all.x=T)
+df.correlated.col <- df.correlated[,c('peiidref', 'taxclname','taxonname')]
+names(df.correlated.col) <- c('peiid', 'taxclname','correlated')
+
+f.sub.3 <- merge(f.sub.2, df.correlated.col, by = "peiid", all.x=T)
+
+f.sub.4 <- merge(f.sub.3, get_sitedatagroup_from_NASIS_db(), by="siteiid", all.x=T)
+```
+
+```{r, echo=F, warning=F, message=F, results='asis'}
+f.sub.out <- f.sub.4[,c('site_id','pedon_id','sampled_as','taxclname','musym','correlated', 'grpname')]
+ss <- split(f.sub.out, f=f.sub.out$grpname)
+for(s in ss) {
+  cat(paste0("#",s$grpname[1]))
+  print(kable(s))
+}
+write.csv(f.sub.4, file="lab_pedon_correlations.csv")
+```
