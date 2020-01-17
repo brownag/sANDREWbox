@@ -22,7 +22,7 @@ p.pattern <- "Auburn"
 mlra.pattern <- "18"
 
 # project extent map (additional constraints on extent)
-project.extent.file <- "" #"E:/CA649/ca649_mvo_FY2020.shp"
+project.extent.file <- "E:/CA649/Geodata/derived/metavolcanics_ca.shp"
 
 output.utm.zone <- "10"
 
@@ -37,6 +37,7 @@ library(aqp)
 library(soilDB)
 library(rgdal)
 library(rgeos)
+library(raster)
 library(ape)
 library(cluster)
 library(latticeExtra)
@@ -60,10 +61,13 @@ projects <- soilDB::fetchNASISWebReport(projectname = p$projectname[grepl(p$proj
 projects$spc$compnamepct <- paste0(projects$spc$compname, " (",projects$spc$comppct_r,"%)")
 
 # visualize the component horizon data in all mapunits associated with one or more projects as identified above
-par(mar=c(0.2,0.2,3,0.2))
-groupedProfilePlot(projects$spc, groups='dmudesc', 
+projects$spc$dmudesc <- factor(projects$spc$dmudesc)
+png(filename = "project_GPP.png", width = 10.5*75, height=8*75)
+par(mar=c(0,1,4,1))
+groupedProfilePlot(projects$spc, groups='dmudesc', cex.names=1, 
                    label = 'compnamepct', id.style="side",
                    color = 'claytotal_r')
+dev.off()
 
 # load pedons out of nasis selected set
 f <- fetchNASIS()
@@ -73,7 +77,8 @@ proj4string(f) <- "+proj=longlat +datum=WGS84"
 
 # visualize horizon data in TUD pedons 
 par(mar=c(0.5,1.5,4.5,3))
-groupedProfilePlot(f, groups='taxonname', 
+f$taxonname <- factor(f$taxonname)
+groupedProfilePlot(subsetProfiles(f, s="pedontype == 'TUD pedon' | pedontype == 'representative pedon for component'"), groups='taxonname', 
                    label = 'pedon_id', id.style="side", col.legend.cex=1.1,
                    color = 'texcl', axis.line.offset=-1.5, cex.names=1.1)
 
@@ -91,13 +96,44 @@ mu.table <- mukey.lut.res[order(mukey.lut.res$muname),]
 write.csv(mu.table, file=paste0(out.file.prefix, "_MU-TABLE.csv"))
 knitr::kable(mu.table)
 
+chunk_SDA_spatial <- function(mukey.list, nchunk = 10) {
+  if(nchunk > length(mukey.list))
+    nchunk <- length(mukey.list)
+  
+  mukey.chunk <- (1:length(mukey.list) %% nchunk) + 1
+  s <- NULL
+  
+  for(i in 1:max(mukey.chunk)) {
+    idx <- which(mukey.chunk == i)
+    
+    q <- paste0("SELECT G.MupolygonWktWgs84 as geom, mapunit.mukey FROM mapunit 
+                CROSS APPLY SDA_Get_MupolygonWktWgs84_from_Mukey(mapunit.mukey) as G 
+                WHERE mukey IN ", format_SQL_in_statement(mukey.list[idx]))
+    
+    #NB: FedData has a different (much simpler, but not equivalent) definition of SDA_query
+    #    it also uses the post/rest interface
+    sp.res.sub <- suppressMessages(soilDB::SDA_query(q))
+    s.sub <- soilDB::processSDA_WKT(sp.res.sub)
+    
+    if(is.null(s)) {
+      s <- s.sub
+    } else {
+      s <- rbind(s, s.sub)
+    }
+  }
+  return(s)
+}
+
 # do SDA spatial query using MUKEY to create WKT 
-q <- paste0("select G.MupolygonWktWgs84 as geom, mu.mukey, muname, musym, nationalmusym, l.areasymbol
-  FROM mapunit AS mu CROSS APPLY SDA_Get_MupolygonWktWgs84_from_Mukey(mu.mukey) as G
-  INNER JOIN legend l ON mu.lkey = l.lkey
-  WHERE mukey IN ",format_SQL_in_statement(mukey.lut),";")
-res <- SDA_query(q)
-s <- processSDA_WKT(res)
+# q <- paste0("select G.MupolygonWktWgs84 as geom, mu.mukey, muname, musym, nationalmusym, l.areasymbol
+#   FROM mapunit AS mu CROSS APPLY SDA_Get_MupolygonWktWgs84_from_Mukey(mu.mukey) as G
+#   INNER JOIN legend l ON mu.lkey = l.lkey
+#   WHERE mukey IN ",format_SQL_in_statement(mukey.lut),";")
+# res <- SDA_query(q)
+# s <- processSDA_WKT(res)
+
+s <- chunk_SDA_spatial(mukey.lut)
+
 # save(s, file='mupoly_bak.Rda')
 # load('mupoly_bak.Rda')
 
@@ -105,9 +141,16 @@ s <- processSDA_WKT(res)
 if(!is.null(project.extent.file) & project.extent.file != '') {
   proj.extent <- readOGR(project.extent.file)
   proje <- spTransform(proj.extent, CRS(proj4string(s)))
+                        
   s.sub <- s[!is.na(over(s, proje)[,1]),]
+  
+  res <- SDA_spatialQuery(crop(proje, extent(s.sub)))
+  s2 <- chunk_SDA_spatial(res$mukey)
+  
+  s2.sub <- s2[!is.na(over(s2, proje)[,1]),]
 } else {
   s.sub <- s
+  s2.sub <- s
 }
 
 # do spatial overlay of pedons on polygons
@@ -119,11 +162,12 @@ mlra <- spTransform(mlra, CRS(proj4string(s.sub)))
 mlra.sub <- mlra[grepl(mlra$MLRARSYM, pattern=mlra.pattern),]
 par(mar=c(0.1,0.1,0.1,0.1))
 plot(s)
+#plot(s2.sub, border="black", col="blue", add=T)
 plot(s.sub, border="black", col="red", add=T)
 plot(mlra.sub, border="blue",add=T)
 legend('bottomleft',lty=c(1,NA,1), lwd=c(2,NA,2),
        legend=c("MUSYM Extent","Project Extent","MLRA Boundary"),
-       col=c("BLACK","RED","BLUE"), fill=c(NA, "RED", NA), cex=1.2)
+       col=c("BLACK","RED","BLUE"), fill=c(NULL, "RED", NULL), cex=1.2)
 #plot(FedData::polygon_from_extent(s), add=T, border="RED")
 
 # acres by musym in area
