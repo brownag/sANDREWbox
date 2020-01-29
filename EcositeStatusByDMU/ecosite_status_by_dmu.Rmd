@@ -24,6 +24,7 @@ cat("DMUID Pattern: ",dmupattern)
 ***
 
 ```{r, echo=FALSE, results='hide', warning=FALSE, message=FALSE}
+library(aqp)
 library(soilDB)
 library(plyr) 
 library(knitr)
@@ -145,7 +146,7 @@ get_legend_from_NASIS_db <- function() {
   return(d)
 }
 
-c <-  as.data.frame(site(fetchNASIS_components(SS = TRUE)))
+c <-  as.data.frame(site(fetchNASIS(from = 'components', fill=TRUE, SS = TRUE)))
 l <- get_legend_from_NASIS_db()
 c <- join(c, l, by="dmuiid")
 
