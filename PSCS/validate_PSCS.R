@@ -1,6 +1,6 @@
 # NASIS Pedon Particle Size Control Section (PSCS) Validation script
 # @author: andrew brown
-# @last revised: 2020/01/15; using aqp 1.18.4
+# @last revised: 2020/02/24; using aqp 1.19.1
 
 # load aqp library - SoilProfileCollections, PSCS estimator and profile plots
 library(aqp)
@@ -15,19 +15,16 @@ f <- fetchNASIS()
 
 message(paste0("Loaded ",length(f), " pedons."))
 
-# define function for merging estimatePSCS result from profileApply
-frameify <- function(l, colnames=NULL) {
-  res <- as.data.frame(cbind(names(l), do.call('rbind', l)), row.names = FALSE)
-  colnames(res) <- colnames
-  return(res)
-}
-
 # calculate a list with top and bottom depth of PSCS for each profile in SPC
-l.calc.pscs <- profileApply(f, estimatePSCS, bottom.pattern = "Cr|R|Cd|qm", simplify = FALSE)
+l.calc.pscs <- profileApply(f, function(p) {
+  df <- cbind(profile_id(p), as.data.frame(t(as.numeric(estimatePSCS(p, bottom.pattern = "Cr|R|Cd|qm")))))
+  names(df) <- c(idname(f), "calc_pscstop", "calc_pscsbot")
+  return(df)
+}, frameify=TRUE)
 message(paste0("PSCS boundaries calculated."))
 
 # merge data.frame with calculated PSCS bounds into site table
-site(f) <- frameify(l.calc.pscs, colnames = c(idname(f), "calc_pscstop", "calc_pscsbot"))
+site(f) <- l.calc.pscs
 
 # create subset of mismatching (calc versus stored) top depths
 res <- subsetProfiles(f, s = 'calc_pscstop != psctopdepth | calc_pscsbot != pscbotdepth')
@@ -40,12 +37,13 @@ if(length(res)) {
   plotSPC(res, label="pedon_id")
   
   calc.df <- site(res)[,c(idname(res), "calc_pscstop", "calc_pscsbot")]
-  names(calc.df) <- c()
+  names(calc.df) <- c(idname(res),"top","bottom")
+  pop.df <- site(res)[,c(idname(res), "psctopdepth", "pscbotdepth")]
+  names(pop.df) <- c(idname(res),"top","bottom")
   
-  addBracket(x <- site(res)[,c(idname(res), "calc_pscstop", "calc_pscsbot")],
-                       tick.length = 0, lwd=7, offset=-0.075,
+  addBracket(x = calc.df, tick.length = 0, lwd=7, offset=-0.075,
                        col=rgb(red=0, green=0, blue=1, alpha=0.50))
-  addBracket(x <- site(res)[,c(idname(res), "psctopdepth", "pscbotdepth")], col="YELLOW", 
+  addBracket(x = pop.df, col="YELLOW", 
                        tick.length = 0, lwd=1, offset=-0.075)
   
   message(paste0(length(res)," of ",length(f)," PSCS top depths do not match!"))
