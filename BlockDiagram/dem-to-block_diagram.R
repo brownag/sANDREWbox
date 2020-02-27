@@ -1,6 +1,6 @@
 # dem-to-block_diagram.R
 # 03/11/2019
-# last revised: 04/05/2019
+# last revised: 02/27/2019
 # @author: andrew brown; 
 #          based on demo by dylan beaudette
 
@@ -8,11 +8,10 @@ library(rayshader)
 library(rgl)
 library(raster)
 library(rgdal)
-library(FedData)
 library(viridis)
-library(imager)
 library(sf)
 library(fasterize)
+library(gstat)
 
 ######
 ### SETUP
@@ -20,29 +19,61 @@ library(fasterize)
 
 ## 1. read shapefile for overlay (must cover full extent of elevation .TIF)
 #       for example, ssurgo data symbolized on musym
-thematic_shp <- readOGR(dsn='L:/NRCS/MLRAShared/CA630/Archived_OFFICIAL_DB/final/FG_CA630_GIS_2018.gdb',
-                        layer="ca630_a")
+thematic_shp <- readOGR(dsn='C:/PATH/TO/A/GEODATABASE.gdb',
+                        layer="YOURLAYERNAME", stringsAsFactors = FALSE)
 
 ## 2. thematic attribute - the column name in shapefile attribute table 
 mu.col <- "MUSYM"
 
+# group levels in mu.col to omit from result
+omit.groups <- c("W","8034","7078","7076","7079","7083","7085")
+
 ## 3. digital elevation model (TIFF, or other raster-compatible format) for a chunk of space
 #     e.g. pan to desired area in ArcMap, and Data > Export Data > By Data Frame
-elev <- fasterize::raster('lidar_Tm_test_5m.tif')
-#elev <- raster('elev.tif')
+elev_orig <- fasterize::raster('YOURDEM.tif')
 
 ## 4. OPTIONAL: resample raster input
-##      if needed, you can resample to some other resolution/grid size
-##      note that the DEM/hillshade and any derived overlays/shadows will be in this resolution
+target_resolution <- res(elev_orig) # c(5,5) # define a coarser or finer resolution
+
+## 5. OPTIONAL: Apply inverse-distance weighting interpolation to minimize DEM artefacts?
+idw_smooth <- FALSE
+focal_length <- 7 # size of focal window (an n x n square)
+pct_dem_train <- 15 # percentage of DEM to use in spatial interpolation (100% = exact match)
+
+######
+### END SETUP
+######
 
 ## copy elevation raster
-# elev_template <- elev
+elev_template <- elev_orig
 
 ## change raster resolution in template (leaving all else the same)
-# res(elev_template) <- c(5, 5) #5 m by 5 m
+res(elev_template) <- target_resolution
 
 ## resample elevation raster to desired template 
-# elev <- resample(elev, elev_template)
+if(all(res(elev_template) == res(elev)))
+  elev <- resample(elev_orig, elev_template)
+names(elev) <- "elev"
+
+  # inverse distance weighted interp using a subset of the data
+if(idw_smooth) {
+  train.pt <- as(elev, 'SpatialPointsDataFrame')
+  
+  # take 10% of the DEM pixels
+  train.pt <- train.pt[sample(1:nrow(train.pt), size=floor(nrow(train.pt) / pct_dem_train)),]
+  
+  # fit a gstat model, using just location as predictor
+  gs <-  gstat(formula=elev~1, locations=train.pt, nmax=5, set=list(idp=0))
+  
+  # do inverse-distance weighted interpolation using gstat model and original raster
+  elev_i <- interpolate(elev, gs)
+  
+  # inspect difference between interpolated and original
+  #plot(elev - elev_i, col=viridis(12))
+  
+  # apply focal window median smoothing
+  elev <- focal(elev_i, w=outer(rep(1, focal_length), rep(1, focal_length)), median)
+}
 
 ## save to file
 # writeRaster(elev, filename='lidar_Tm_test_5m.tif')
@@ -52,70 +83,65 @@ elev <- fasterize::raster('lidar_Tm_test_5m.tif')
 ######
 
 # convert elevation raster -> matrix
-elmat <- matrix(extract(elev, extent(elev), buffer=1000), nrow=ncol(elev), ncol=nrow(elev))
+elmat <- rayshader::raster_to_matrix(elev)
+  #matrix(extract(elev, extent(elev), buffer=1000), nrow=ncol(elev), ncol=nrow(elev))
 
 # calculate (rectangular) boundary of DEM, use that to cut the overlay shapefile
 
 # note: there is no specific reason your extent polygon has to be rectangular
 #       but it is done here because rasters are commonly rectangular and we wan 
-extent.poly <- FedData::polygon_from_extent(elev)
-extent.poly <- spTransform(extent.poly, CRS(proj4string(thematic_shp)))
+extent.poly <- as(extent(elev), 'SpatialPolygons')
+proj4string(extent.poly) <-  proj4string(elev)
+thematic_shp <- spTransform(thematic_shp, CRS(proj4string(elev)))
+extent.poly <- spTransform(extent.poly, CRS(proj4string(elev)))
 thematic_shp <- crop(thematic_shp, y = extent.poly)
+
+# calculate number of groups
+grp <- unique(thematic_shp[[mu.col]])
+n.grp <- length(grp)
+
+# generate initial color palette with n.grp colors
+first.colors <- viridis(n.grp)
+
+if(exists(omit.groups) & length(omit.groups)) {
+  first.colors[match(grp[grp %in% omit.groups], grp)] <- NA
+  new.colors <- viridis(n.grp - sum(is.na(first.colors)))
+  first.colors[!is.na(first.colors)] <- new.colors
+}
 
 # assign numeric value that is 1:1 with mukey
 thematic_shp$munum <- match(thematic_shp[[mu.col]], unique(thematic_shp[[mu.col]]))
 
 # produce raster
-thematic_shp <- spTransform(thematic_shp, CRS(proj4string(elev)))
 #theme <- rasterize(x = thematic_shp, y = elev, 'munum')
 theme <- fasterize(sf = st_as_sf(thematic_shp), raster = elev, field = 'munum')
 
 # inspect raster representation of theme musym
-plot(theme)
+plot(theme, col=first.colors)
 
 # create RGB array from rasterized theme
-tf <- "temp.png"
-sgdf <- as(theme, 'SpatialGridDataFrame')
-scl <- function(x) (x - min(na.omit(x))) / diff(range(na.omit(x))) 
+tf <- tempfile()
+old.par = par(no.readonly = TRUE)
+on.exit(par(old.par))
+png(tf, width = nrow(elmat), height = ncol(elmat))
 
-# OPTIONAL: set SPECIFIC COLORS for certain theme levels
-#n.grp <- length(unique(values(theme)))
-#first.colors <- viridis(n.grp)
-#first.colors[5] <- "#000000" # set 5th symbol to black
-## ETC.
-#alt.cols <- col2rgb(first.colors[values(theme)])
-#cols <- alt.cols
+fliplr = function(x) { x[,ncol(x):1] }
 
-# select some colors that ideally span the color ramps, get RGB
-cols <- col2rgb(rev(viridis(256))[scl(values(theme)) * 255 + 1])
-# comment this line out if you are setting colors manually with alt.colors
+cols <- col2rgb(first.colors[values(theme)])
 
-# get the RGB channels and put them in the SGDF
-sgdf$red <- cols[1,]
-sgdf$grn <- cols[2,]
-sgdf$blu <- cols[3,]
-
-# write to PNG then read it back with imager... to get the color array
-# this is convenient but theoretically just rescaling the RGB channels in the SGDF
-# would be sufficient (i.e. no file output required per se)
-writeGDAL(sgdf[c("red", "grn", "blu")], tf, type="Byte", mvFlag=255, drivername="PNG")
-load.array <- as.array(load.image(tf))
-
-# take just the R, G and B -- and shift around the dimensions a bit for rayshader
-my.array <- load.array[,,1,1:3]
+par(mar = c(0,0,0,0))
+raster::image(fliplr(raster_to_matrix(theme)), 
+              axes = FALSE, 
+              col = first.colors)
+dev.off()
+load.array <- png::readPNG(tf)
 
 # compute shadows
 raymat <- ray_shade(elmat)
 ambmat <- ambient_shade(elmat)
 
-# with big files save the intermediates in case rgl crashes R or something
+# with big files save the intermediates in case R session crashes
 #save(raymat, ambmat, file = "intermediates.Rda")
-
-# example: add overlay to static map
-# elmat %>%
-#   sphere_shade(texture = "desert") %>%
-#   add_overlay(my.array, alphacolor=1) %>%
-#   plot_map()
 
 # INTERACTIVE 3D PLOT WITH RGL
 
@@ -123,21 +149,20 @@ ambmat <- ambient_shade(elmat)
 # zoom with mouse wheel
 # rotate with left-mouse + drag
 
+# important to clear the rgl window if any settings are adjusted
+rgl::rgl.clear()
+
 # interactive 3D plot via rgl
 elmat %>%
   sphere_shade(texture = "desert") %>%
-  add_overlay(my.array, alphacolor=1) %>%
-  #add_water(detect_water(elmat), color="desert") %>%
+  add_overlay(load.array, alphalayer = 0.9) %>%
+  #add_water(detect_water(elmat, cutoff = 0.99, min_area = 4000), color="desert") %>%
   add_shadow(raymat, max_darken = 0.4) %>%
   add_shadow(ambmat, max_darken = 0.4) %>%
-  plot_3d(elmat, zscale=0.9, fov=0, theta=30, water = 0,
+  plot_3d(elmat, zscale=2, fov=0, theta=30, water = 0,
           zoom=0.75, phi=45, windowsize = c(1000,800), lineantialias = TRUE)
 
 # take a static picture of the rgl window
 render_snapshot()
 
-# important to clear the previous rgl window if any settings are adjusted
-rgl::rgl.clear()
 
-# # not well supported on Windows
-# render_label(elmat, x=100, y=100, z=4000, zscale=20, text = "Somethign", textsize = 2, linewidth = 5, freetype=FALSE, antialias = TRUE)
