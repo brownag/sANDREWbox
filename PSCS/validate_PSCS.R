@@ -17,7 +17,8 @@ message(paste0("Loaded ",length(f), " pedons."))
 
 # calculate a list with top and bottom depth of PSCS for each profile in SPC
 l.calc.pscs <- profileApply(f, function(p) {
-  df <- cbind(profile_id(p), as.data.frame(t(as.numeric(estimatePSCS(p, bottom.pattern = "Cr|R|Cd|qm")))))
+  df <- cbind(profile_id(p), 
+              as.data.frame(t(as.numeric(estimatePSCS(p, bottom.pattern = "Cr|R|Cd|qm")))))
   names(df) <- c(idname(f), "calc_pscstop", "calc_pscsbot")
   return(df)
 }, frameify=TRUE)
