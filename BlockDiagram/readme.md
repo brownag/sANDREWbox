@@ -71,16 +71,20 @@ extent.poly <- st_set_crs(extent.poly, crs(elev_orig))
 
 ### OPTIONAL: Resampling and Interpolating DEM input
 
-If needed, you can resample your elevation raster to some other resolution/grid size. Note that the DEM/hillshade and any derived overlays/shadows will all be in the _same resolution_ as the elevation matrix. 
+Note that any derived overlays/shadows will all be in the _same resolution_ as the parent DEM. If needed, you can resample your DEM to some other resolution/grid size. 
 
-If you have very detailed/large rasters, creating the elevation derivatives will take a long time and _rgl_ (3D visualization package) will run slow. It will be to your benefit to reduce resolution in this case.
+If you have very detailed/large rasters, creating the derivatives will take a long time and _rgl_ (3D visualization package) will run slow. It will be to your benefit to reduce resolution in this case.
 
 ```
 ## 4. OPTIONAL: resample raster input, default is same as DEM
 target_resolution <- c(5,5) # target is 5m x 5m grid
 ```
 
-Depending on DEM origin/level of detail there may be value in performing some interpolaton on the resampled result -- to remove artefacts or unnecessary detail. Set `idw_smooth` to TRUE to use this feature. By default, the 7x7 focal median is taken following the interpolation. Also, select the percentage of the input DEM to use in the IDW interpolation.
+Depending on DEM origin/level of detail there may be value in performing some interpolation on the resampled result. This could be to remove artifacts in low-relief areas _or_ "unnecessary" detail that slows down processing of high-detail datasets. 
+
+This option may be challenging to use/have unintended effects in areas with strongly contrasting relief patterns and low-detail DEMs. Future efforts may try to use a relief threshold for applying this to only a subset of the DEM (e.g. only where contour spacing is greater).
+
+To interpolate by inverse distance weighting, set `idw_smooth` to TRUE to use this feature. By default, the 7x7 focal median is taken following the interpolation. Also, select the percentage of the input DEM to sample for supporting interpolation.
 
 ```
 ## 5. Apply inverse-distance weighting interpolation to minimize DEM artifacts?
