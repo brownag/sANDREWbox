@@ -12,11 +12,11 @@ This document explains how to use the `rayshader` R package to create 3-D themat
 
 Download the __R__ script here: [dem-to-block_diagram.R](dem-to-block_diagram.R)
 
-This script folder contains two demonstration inputs:
+This script folder contains *demo_data.zip* which houses two demonstration inputs:
 
  * _demo_dem.tif_ - LiDAR DEM (1m x 1m resolution) for small extent
  
- * _demo_ssurgo.tif_ - SSURGO data corresponding to demo_dem.tif extent
+ * _demo_ssurgo.tif_ - SSURGO data corresponding to _demo_dem.tif_ extent
  
 Try running the script with these files to see a quick example and make sure all essential components of the script are working.
 
@@ -80,11 +80,9 @@ If you have very detailed/large rasters, creating the derivatives will take a lo
 target_resolution <- c(5,5) # target is 5m x 5m grid
 ```
 
-Depending on DEM origin/level of detail there may be value in performing some interpolation on the resampled result. This could be to remove artifacts in low-relief areas _or_ "unnecessary" detail that slows down processing of high-detail datasets. 
+Depending on DEM origin/level of detail there may be value in performing some interpolation on the resampled result. The DEM will be resampled first. To interpolate by inverse distance weighting, set `idw_smooth` to `TRUE`. By default, a 7x7 focal median is taken to reduce any noise introduced by the interpolation. You also must set the percentage of the input DEM to sample for supporting interpolation -- a higher percentage will result in greater match between your interpolated result and your input data.
 
-This option may be challenging to use/have unintended effects in areas with strongly contrasting relief patterns and low-detail DEMs. Future efforts may try to use a relief threshold for applying this to only a subset of the DEM (e.g. only where contour spacing is greater).
-
-To interpolate by inverse distance weighting, set `idw_smooth` to TRUE to use this feature. By default, the 7x7 focal median is taken following the interpolation. Also, select the percentage of the input DEM to sample for supporting interpolation.
+This routine could be used to remove artifacts in low-relief, low-detail areas _OR_ smooth spurious/unnecessary detail in high-detail datasets. This option may be challenging to use/have unintended effects in low-detail DEMs with strongly contrasting relief. Future efforts may try to use a relief "threshold" for applying interpolation to only a subset of the DEM (e.g. only where "contour" spacing is greater than X meters).
 
 ```
 ## 5. Apply inverse-distance weighting interpolation to minimize DEM artifacts?
