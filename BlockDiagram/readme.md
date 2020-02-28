@@ -11,9 +11,17 @@ This document explains how to use the `rayshader` R package to create 3-D themat
 
 Download the __R__ script here: [dem-to-block_diagram.R](dem-to-block_diagram.R)
 
+This script folder contains two demonstration inputs:
+
+ * _demo_dem.tif_ - LiDAR DEM (1m x 1m resolution) for small extent
+ 
+ * _demo_ssurgo.tif_ - SSURGO data corresponding to demo_dem.tif extent
+ 
+Try running the script with these files to see a quick example and make sure all essential components of the script are working.
+
 # Install dependencies
 
-If you don't already have the necessary packages, install them:
+Install the required packages.
 
 ```
 install.packages('rayshader','rgl','raster','rgdal','gstat','RColorBrewer','sf','fasterize','gstat')
@@ -21,7 +29,7 @@ install.packages('rayshader','rgl','raster','rgdal','gstat','RColorBrewer','sf',
 
 # Setup
 
-There are a few options you will need to customize to run the script with your own data.
+There are a few options you will need to customize to run the script with your own data. The most important are your thematic shapefile (what are you plotting) and the DEM you will use as your base. There are also other options related to the extent of plotting, groups and color palettes.
 
 ## Thematic Shapefile
 
@@ -74,7 +82,7 @@ target_resolution <- c(5,5) # target is 5m x 5m grid
 Depending on DEM origin/level of detail there may be value in performing some interpolaton on the resampled result -- to remove artefacts or unnecessary detail. Set `idw_smooth` to TRUE to use this feature. By default, the 7x7 focal median is taken following the interpolation. Also, select the percentage of the input DEM to use in the IDW interpolation.
 
 ```
-## 5. Apply inverse-distance weighting interpolation to minimize DEM artefacts?
+## 5. Apply inverse-distance weighting interpolation to minimize DEM artifacts?
 idw_smooth <- FALSE
 focal_length <- 7 # size of focal window (an n x n square)
 pct_dem_train <- 15 # random % of DEM to use in spatial interpolation (100% = exact match)
@@ -84,7 +92,7 @@ gstat.nmax <- 5 # number of neighbors to use in making prediction
 ## Setting Custom Colors
 After the input thematic shapefile has been rasterized, colors are assigned. By default, a set of colors that spans the color ramp that matches the number of unique levels in `mu.col` is used to render the map.
 
-There is a section of commented-out code that allows you to modify the default set.  Here is the code that you would need to edit.
+There is a section of commented-out code that allows you to modify the default set.  Here is the code that you would need to edit. Note you will need to account for any groups you are omitting in the indexing of your color vector.
 
 ```
 # replace individual colors (Optional) RGB Method colors[4] <- rgb(0,0,132/255)

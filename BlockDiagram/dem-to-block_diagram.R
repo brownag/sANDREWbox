@@ -17,7 +17,7 @@ library(gstat)
 
 ## 1. read shapefile for overlay (must cover full extent of elevation .TIF)
 #       for example, ssurgo data symbolized on musym
-thematic_shp <- st_read('dredge_ssurgo.shp', stringsAsFactors = FALSE)
+thematic_shp <- st_read('demo_ssurgo.shp', stringsAsFactors = FALSE)
 
 ## 2. thematic attribute - the column name in shapefile attribute table 
 mu.col <- "MUSYM"
@@ -27,7 +27,7 @@ omit.groups <- c("W")
 
 ## 3. digital elevation model (TIFF, or other raster-compatible format) for a chunk of space
 #     e.g. pan to desired area in ArcMap, and Data > Export Data > By Data Frame
-elev_orig <- raster('dredge_tailings.tif')
+elev_orig <- raster('demo_tailings.tif')
 
 # if needed, define additional extent constraints (default uses full extent of DEM)
 
@@ -41,7 +41,7 @@ elev_orig <- raster('dredge_tailings.tif')
 ## 4. OPTIONAL: resample raster input
 target_resolution <- c(1,1) # define a coarser or finer resolution
 
-## 5. OPTIONAL: Apply inverse-distance weighting interpolation to minimize DEM artefacts?
+## 5. OPTIONAL: Apply inverse-distance weighting interpolation to minimize DEM artifacts?
 idw_smooth <- FALSE
 focal_length <- 7 # size of focal window (an n x n square)
 pct_dem_train <- 15 # random % of DEM to use in spatial interpolation (100% = exact match)
