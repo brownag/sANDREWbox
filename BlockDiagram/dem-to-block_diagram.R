@@ -200,6 +200,6 @@ render_snapshot()
 
 # generate a legend, add to plot
 order.grp <- order(grp)
-legend(x = "bottomleft", legend=grp, fill=new.colors)
+legend(x = "bottomleft", legend=grp[order.grp], fill=new.colors[order.grp])
 
 

@@ -2,8 +2,9 @@
 
 ## Last Revised: 02/28/2020
 ## Authors: Andrew Paolucci, Andrew Brown, Dylan Beaudette
-
-<img src="sample.png" alt="LiDAR-derived (resampled to 5m x 5m resolution) 3D landscape with SSURGO MUSYM as thematic attribute. Table Mountain, Tuolumne County, California" width="50%" align="center">
+<center>
+<img src="sample.png" alt="LiDAR-derived (resampled to 5m x 5m resolution) 3D landscape with SSURGO MUSYM as thematic attribute. Dredge tailings and erosional remnants near Jenny Lind, CA" width="50%">
+</center>
 
 # Get the script
 
