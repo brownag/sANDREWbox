@@ -1,13 +1,9 @@
----
-title: "DEM to Block Diagram - Rayshader Demo"
-author: "Andrew Brown"
-date: "Last updated: April 5th, 2019"
----
-<center>
+# dem-to-block_diagram.R
 
-![LiDAR-derived (resampled to 5m x 5m resolution) 3D landscape with SSURGO MUSYM as thematic attribute. Table Mountain, Tuolumne County, California](sample.png "LiDAR-derived (resampled to 5m x 5m resolution) 3D landscape with SSURGO MUSYM as thematic attribute. Table Mountain, Tuolumne County, California")
+## Last Revised: 02/28/2020
+## Authors: Andrew Paolucci, Andrew Brown, Dylan Beaudette
 
-</center>
+<img src="sample.png" alt="LiDAR-derived (resampled to 5m x 5m resolution) 3D landscape with SSURGO MUSYM as thematic attribute. Table Mountain, Tuolumne County, California" width="50%" align="center">
 
 # Get the script
 
@@ -19,11 +15,8 @@ Download the __R__ script here: [dem-to-block_diagram.R](dem-to-block_diagram.R)
 
 If you don't already have the necessary packages, install them:
 
-```{r eval=F}
-
-install.packages('rayshader','rgl','raster',
-                  'rgdal','gstat','viridis',
-                  'sf','fasterize')
+```
+install.packages('rayshader','rgl','raster','rgdal','gstat','RColorBrewer','sf','fasterize','gstat')
 ```
 
 # Setup
@@ -34,31 +27,37 @@ There are a few options you will need to customize to run the script with your o
 
 Set the path to the shapefile/feature class you want to overlay on your 3D landscape.
 
-```{r, eval=F}
+```
 ## 1. read shapefile for overlay (must cover full extent of elevation .TIF)
 #       for example, ssurgo data symbolized on musym
-thematic_shp <- readOGR(dsn='C:/PATH/TO/A/GEODATABASE.gdb',
-                        layer="YOURLAYERNAME", stringsAsFactors = FALSE)
+thematic_shp <- st_read('dredge_ssurgo.shp', stringsAsFactors = FALSE)
 ```
 
 ## Thematic Attribute
 Set the _thematic attribute_ -- the column name in shapefile attribute table containing what you would like to symbolize.  If necessary, specify any levels to omit with `omit.groups`.
 
-```{r, eval=F}
+```
 ## 2. thematic attribute - the column name in shapefile attribute table 
 mu.col <- "MUSYM"
 
-# OPTIONAL: levels in mu.col to omit from result (uncomment if needed)
-# omit.groups <- c("W","8034","7078","7076","7079","7083","7085")
+# group levels in mu.col to omit from result
+omit.groups <- c("W")
 ```
 
 ## Digital Elevation Model
-Load a raster digital elevation model (TIFF, or other raster-compatible format) for a chunk of space. You can easily create this for a desired extent by panning to area in ArcMap, and _Data_ > _Export Data_ > _By Data Frame_.
+Load a raster digital elevation model (.TIF) for a chunk of space. You can easily create this for a desired extent by panning to area in ArcMap, and _Data_ > _Export Data_ > _By Data Frame_.
 
-```{r, eval=F}
+```
 ## 3. digital elevation model (TIFF, or other raster-compatible format) for a chunk of space
 #     e.g. pan to desired area in ArcMap, and Data > Export Data > By Data Frame
 elev_orig <- fasterize::raster('YOURDEM.tif')
+```
+If needed, define additional extent constraints (default uses full extent of DEM)
+
+```
+# example: take a small subset (1/100th) of the DEM
+extent.poly <- st_as_sf(as(extent(elev_orig) / 10, 'SpatialPolygons'))
+extent.poly <- st_set_crs(extent.poly, crs(elev_orig))
 ```
 
 ### OPTIONAL: Resampling and Interpolating DEM input
@@ -67,24 +66,35 @@ If needed, you can resample your elevation raster to some other resolution/grid 
 
 If you have very detailed/large rasters, creating the elevation derivatives will take a long time and _rgl_ (3D visualization package) will run slow. It will be to your benefit to reduce resolution in this case.
 
-```{r, eval=F}
+```
 ## 4. OPTIONAL: resample raster input, default is same as DEM
 target_resolution <- c(5,5) # target is 5m x 5m grid
 ```
 
 Depending on DEM origin/level of detail there may be value in performing some interpolaton on the resampled result -- to remove artefacts or unnecessary detail. Set `idw_smooth` to TRUE to use this feature. By default, the 7x7 focal median is taken following the interpolation. Also, select the percentage of the input DEM to use in the IDW interpolation.
 
-```{r, eval=F}
+```
 ## 5. Apply inverse-distance weighting interpolation to minimize DEM artefacts?
-idw_smooth <- TRUE
+idw_smooth <- FALSE
 focal_length <- 7 # size of focal window (an n x n square)
-pct_dem_train <- 15 # percentage of DEM to use in spatial interpolation (100% = exact match)
+pct_dem_train <- 15 # random % of DEM to use in spatial interpolation (100% = exact match)
+gstat.nmax <- 5 # number of neighbors to use in making prediction
 ```
 
 ## Setting Custom Colors
-After the input thematic shapefile has been rasterized, _viridis_ colors are assigned. By default, a set of colors that spans the color ramp that matches the number of unique levels in `mu.col` is used to render the map.
+After the input thematic shapefile has been rasterized, colors are assigned. By default, a set of colors that spans the color ramp that matches the number of unique levels in `mu.col` is used to render the map.
 
-There is a section of commented-out code that allows you to modify the default set of viridis colors.  Here is the code that you would need to edit.
+There is a section of commented-out code that allows you to modify the default set.  Here is the code that you would need to edit.
+
+```
+# replace individual colors (Optional) RGB Method colors[4] <- rgb(0,0,132/255)
+new.colors[1] <- "#E4A358" 
+new.colors[2] <- "#A0B7CB" 
+new.colors[3] <- "#A1CC7D" 
+#new.colors[4] <- "#FFFFB3" 
+#new.colors[5] <- "#FDBF6F" 
+#new.colors[6] <- "#999999" 
+```
 
 ## Changelog:
 
@@ -92,4 +102,4 @@ There is a section of commented-out code that allows you to modify the default s
  
  * _2019/04/05_ - replaced `raster::rasterize()` with `fasterize::fasterize()` for making thematic raster much faster
  
- * _2020/02/27_ - updates to conform with new `rayshader`; removed _FedData_ and _imager_ dependencies; added gstat IDW interpolation option; added group omission option
+ * _2020/02/28_ - updates to conform with new _rayshader_ 0.13.x; removed _FedData_, _imager_, _viridis_ dependencies; added _gstat_ IDW interpolation option; added _group.omit_ option; better color selection code and implementation of masking from Andy Paolucci; switched over to using _sf_ for most spatial operations
