@@ -17,7 +17,7 @@ library(gstat)
 
 ## 1. read shapefile for overlay (must cover full extent of elevation .TIF)
 #       for example, ssurgo data symbolized on musym
-thematic_shp <- st_read('demo_ssurgo.shp', stringsAsFactors = FALSE)
+thematic_shp <- st_read('dredge_ssurgo.shp', stringsAsFactors = FALSE)
 
 ## 2. thematic attribute - the column name in shapefile attribute table 
 mu.col <- "MUSYM"
@@ -27,7 +27,7 @@ omit.groups <- c("W")
 
 ## 3. digital elevation model (TIFF, or other raster-compatible format) for a chunk of space
 #     e.g. pan to desired area in ArcMap, and Data > Export Data > By Data Frame
-elev_orig <- raster('demo_tailings.tif')
+elev_orig <- raster('dredge_tailings.tif')
 
 # if needed, define additional extent constraints (default uses full extent of DEM)
 
@@ -39,7 +39,7 @@ elev_orig <- raster('demo_tailings.tif')
 #extent.poly <- st_read("sub_extent.shp", stringsAsFactors = FALSE)
 
 ## 4. OPTIONAL: resample raster input
-target_resolution <- c(1,1) # define a coarser or finer resolution
+target_resolution <- c(5,5) # define a coarser or finer resolution
 
 ## 5. OPTIONAL: Apply inverse-distance weighting interpolation to minimize DEM artifacts?
 idw_smooth <- FALSE
@@ -134,16 +134,16 @@ new.colors <- first.colors
 
 # CHECK: Mapunit ID : Color pie chart
 pie(rep(1, n.grp), 
-    col = first.colors, 
-    labels = paste(1:n.grp, ":", new.colors))
+    col = new.colors, 
+    labels = paste(grp, ":", new.colors))
 
 # replace individual colors (Optional) RGB Method colors[4] <- rgb(0,0,132/255)
-new.colors[1] <- "#E4A358" 
-new.colors[2] <- "#A0B7CB" 
-new.colors[3] <- "#A1CC7D" 
-#new.colors[4] <- "#FFFFB3" 
-#new.colors[5] <- "#FDBF6F" 
-#new.colors[6] <- "#999999" 
+# new.colors[1] <- "#E4A358" 
+# new.colors[2] <- "#A0B7CB" 
+# new.colors[3] <- "#A1CC7D" 
+# new.colors[4] <- "#FFFFB3" 
+# new.colors[5] <- "#FDBF6F" 
+# new.colors[6] <- "#999999" 
 
 # CHECK: inspect an individual color
 barplot(c(1), col = new.colors[1])
@@ -160,11 +160,10 @@ on.exit(par(old.par))
 fliplr <- function(x) { x[,ncol(x):1] }
 
 png(tf, width = nrow(elmat), height = ncol(elmat))
-
   par(mar = c(0,0,0,0))
   raster::image(fliplr(raster_to_matrix(theme)), 
                 axes = FALSE, 
-                col = first.colors)
+                col = new.colors)
 dev.off()
 
 load.array <- png::readPNG(tf)
@@ -192,10 +191,15 @@ elmat %>%
   #add_water(detect_water(elmat, cutoff = 0.99, min_area = 4000), color="desert") %>%
   add_shadow(raymat, max_darken = 0.4) %>%
   add_shadow(ambmat, max_darken = 0.4) %>%
-  plot_3d(elmat, zscale=2, fov=0, theta=30, water = 0,
+  plot_3d(elmat, zscale=0.8, fov=0, theta=30, water = 0,
           zoom=0.75, phi=45, windowsize = c(1000,800), lineantialias = TRUE)
 
 # take a static picture of the rgl window
+plot(1, type="n")
 render_snapshot()
+
+# generate a legend, add to plot
+order.grp <- order(grp)
+legend(x = "bottomleft", legend=grp, fill=new.colors)
 
 
