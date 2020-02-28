@@ -16,7 +16,7 @@ This script folder contains *demo_data.zip* which houses two demonstration input
 
  * _demo_dem.tif_ - LiDAR DEM (1m x 1m resolution) for small extent
  
- * _demo_ssurgo.tif_ - SSURGO data corresponding to _demo_dem.tif_ extent
+ * _demo_ssurgo.shp_ (plus accessory files) - SSURGO shapefile corresponding to _demo_dem.tif_ extent
  
 Try running the script with these files to see a quick example and make sure all essential components of the script are working.
 
