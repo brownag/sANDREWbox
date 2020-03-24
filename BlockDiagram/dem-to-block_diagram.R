@@ -1,9 +1,10 @@
 # dem-to-block_diagram.R
 
-# last revised: 02/28/2020
+# last revised: 03/23/2020
 # @authors: andrew paolucci, andrew brown, dylan beaudette
 
-library(rayshader)
+library(magick)
+library(rayshader) 
 library(rgl)
 library(RColorBrewer)
 
@@ -17,7 +18,7 @@ library(gstat)
 
 ## 1. read shapefile for overlay (must cover full extent of elevation .TIF)
 #       for example, ssurgo data symbolized on musym
-thematic_shp <- st_read('dredge_ssurgo.shp', stringsAsFactors = FALSE)
+thematic_shp <- st_read(dsn = '.', layer = 'dredge_ssurgo.shp', stringsAsFactors = FALSE)
 
 ## 2. thematic attribute - the column name in shapefile attribute table 
 mu.col <- "MUSYM"
@@ -39,7 +40,7 @@ elev_orig <- raster('dredge_tailings.tif')
 #extent.poly <- st_read("sub_extent.shp", stringsAsFactors = FALSE)
 
 ## 4. OPTIONAL: resample raster input
-target_resolution <- c(5,5) # define a coarser or finer resolution
+target_resolution <- res(elev_orig) #c(5,5) # define a coarser or finer resolution
 
 ## 5. OPTIONAL: Apply inverse-distance weighting interpolation to minimize DEM artifacts?
 idw_smooth <- FALSE
@@ -77,7 +78,9 @@ names(elev) <- "elev"
   # inverse distance weighted interp using a subset of the data
 if(idw_smooth) {
   # warning -- this can be very slow with detailed rasters....
-  train.pt <- st_as_sf(as(elev, 'SpatialPoints'))
+  train.pt <- as(elev, 'SpatialPointsDataFrame')
+  proj4string(train.pt) <- proj4string(elev)
+  train.pt <- st_as_sf(train.pt)
   
   # take percentage of the DEM pixels
   train.pt <- train.pt[sample(1:nrow(train.pt), size=floor(nrow(train.pt) / pct_dem_train)),]
@@ -87,7 +90,8 @@ if(idw_smooth) {
                locations = train.pt, # random training subset of dem points
                nmax = gstat.nmax, # number of neighboring points
                set = list(idp = 0))
-  
+ 
+  proj4string(elev) <- st_crs(train.pt)$proj4string
   # do inverse-distance weighted interpolation using gstat model and original raster
   elev_i <- interpolate(elev, gs)
   
@@ -161,7 +165,7 @@ fliplr <- function(x) { x[,ncol(x):1] }
 
 png(tf, width = nrow(elmat), height = ncol(elmat))
   par(mar = c(0,0,0,0))
-  raster::image(fliplr(raster_to_matrix(theme)), 
+  raster::image(fliplr(rayshader::raster_to_matrix(theme)), 
                 axes = FALSE, 
                 col = new.colors)
 dev.off()
@@ -191,7 +195,7 @@ elmat %>%
   #add_water(detect_water(elmat, cutoff = 0.99, min_area = 4000), color="desert") %>%
   add_shadow(raymat, max_darken = 0.4) %>%
   add_shadow(ambmat, max_darken = 0.4) %>%
-  plot_3d(elmat, zscale=0.8, fov=0, theta=30, water = 0,
+  plot_3d(elmat, zscale=2, fov=0, theta=30, water = 0,
           zoom=0.75, phi=45, windowsize = c(1000,800), lineantialias = TRUE)
 
 # take a static picture of the rgl window
