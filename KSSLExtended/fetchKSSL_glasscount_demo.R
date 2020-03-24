@@ -1,29 +1,27 @@
 # glass content comparison by mlra (all horizons with optical glass counts by 7B1a2)
 # demonstration of new extended geochemical data option in fetchKSSL
-# andrew brown; 2020/3/19
+# andrew brown; 2020/3/23
 
-library(dplyr)
 library(aqp)
 library(soilDB)
 
-# use lapply to iterate over MLRAs and do fetchKSSL
+# fetchKSSL for set of MLRAs
 # with returnGeochemicalData = TRUE the result is a list, not just a SPC
-# For each MLRA:
 #  - SPC is in the $SPC element
 #  - geochem is in $geochem
 #  - optical in $optical
 #  - xray in $xrd_thermal
-mlras <- list('22A','22B','1','3')
-f <- lapply(mlras, function(a.mlra) soilDB::fetchKSSL(mlra = a.mlra, returnGeochemicalData = TRUE))
+mlras <- c('22A','22B','1','3')
+f <- fetchKSSL(mlra = mlras, returnGeochemicalData = TRUE)
 
 # extract just SPC component from each MLRA and combine them with union
-spc <- aqp::union(lapply(f, function(x) x$SPC))
+spc <- f$SPC
 
 # extract optical table from each MLRA and combine with rbind
-optical <- do.call('rbind', lapply(f, function(x) x$optical))
+optical <- f$optical
 
 # keep just glass counts
-optical <- dplyr::filter(optical, glass_count_method == "7B1a2")
+optical <- f$optical[grepl("7B1a2", f$optical$glass_count_method), ]
 
 # keep columns that have any values non-NA
 optical <- optical[,-which(apply(optical, 2, function(col) all(is.na(col))))]
@@ -107,7 +105,7 @@ spc.sub$total_glass <- tot_glass_labsampnum[match(spc.sub$labsampnum,
                                                   tot_glass_labsampnum$labsampnum),]$total_glass_pct
 
 # look at total glass (note these are the scaled weighted averages)
-plot(density(spc.sub$total_glass, na.rm=T))
+plot(density(spc.sub$total_glass, na.rm=T, from=0))
 
 # compare quantiles for the MLRAs (across all soils/depths)
 res <- lapply(mlras, function(m) {
@@ -125,3 +123,4 @@ round(do.call("rbind", res),1)
 boxplot(data=horizons(spc.sub), 
         total_glass ~ denormalize(spc.sub, "mlra"),
         xlab="MLRA", ylab="Total Glass % Weighted Sum (csi to ms)")
+
