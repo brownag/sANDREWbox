@@ -3,16 +3,16 @@
 ###  Version: 0.4
 ###  Last update: 2019/11/06
 # input_path - this is the path to unsorted JPG images
-input_path <- "S:/NRCS/Archive_Andrew_Brown/CA649/Pictures/unsorted/"
+input_path <- "C:/picture_staging"
 
 # output_path - this is the path to "sorted" site folders
-output_path <- "S:/NRCS/Archive_Andrew_Brown/CA649/Pictures/sorted/" 
+output_path <- "C:/picture_staging/sorted/" 
 
 # point_source - rgdal data source name of known data point locations (e.g. NASIS sites)
-point_source = 'S:/NRCS/Archive_Andrew_Brown/CA649/Points' 
+point_source = 'E:/CA649/penonblanco/output' 
 
 # point_layer - layer name within point_source folder/geodatabase
-point_layer = 'ca649_dp' 
+point_layer = 'NASIS_pedons' 
 
 # projection information for data extracted from EXIF (assumed)
 device_projection <- '+proj=longlat +datum=WGS84 +ellps=GRS80'
@@ -158,51 +158,56 @@ imgvdp <- spDists(x = imgexif, y=dp_points, longlat=TRUE) * 1000
 imgexif$closest_dp <- apply(imgvdp, 1, function(i) which(i == min(i)))
 
 # calculate shortest distance of dp_point to centroid
-imgexif$distance_to_closest <- apply(imgvdp, 1, function(i) i[i == min(i)])
+imgexif$distance_to_closest <- unlist(lapply(apply(imgvdp, 1, function(i) i[i == min(i)]), function(x) x[1]))
 
 # these centroids are too far from the closest known point
 imgexif$closest_dp[which(imgexif$distance_to_closest > threshold_dist)] <- NA
 
 paste0("Found a data point within ",threshold_dist," meters for ",round(sum(!is.na(imgexif$closest_dp)) / length(imgexif$closest_dp) * 100),"% of the ",length(imgexif)," images in ", input_path)
 
-imgsets <- split(imgexif, imgexif$closest_dp)
+imgsets <- split(imgexif, unlist(imgexif$closest_dp))
 imgunmatched <- split(imgexif[is.na(imgexif$closest_dp),], imgexif[is.na(imgexif$closest_dp),]$image_centroid)
-
+names(imgsets) <- lapply(imgsets, function(x) unique(unlist(x$closest_dp))[1])
 paste0("Moving matched images...")
 for(i in 1:length(imgsets)) {
-  pat <- paste0(output_path, dp_points$ident[as.numeric(names(imgsets)[i])],"/")
+  pat <- paste0(output_path, dp_points$pedon_d[as.numeric(names(imgsets)[i])],"/")
   if(!dir.exists(pat)) 
     dir.create(pat)
   filez <- as.character(imgsets[[names(imgsets)[i]]]$FileName)
-  res <- lapply(as.list(1:length(filez)), function(f) {
-    fi <- filez[as.numeric(f)]
-    if(!is.na(fi) & length(fi)) {
-      img <- image_read(fi)
-      img_s <- image_scale(img, scaling_factor)
-      image_write(image = img_s, path = paste0(pat, basename(fi)))
+  if(length(filez) > 0) {
+    res <- lapply(as.list(1:length(filez)), function(f) {
+      fi <- filez[as.numeric(f)]
+      if(length(fi)) {
+         if(!is.na(fi)) {
+          img <- image_read(fi)
+          img_s <- image_scale(img, scaling_factor)
+          image_write(image = img_s, path = paste0(pat, basename(fi)))
+         }
+      }
+    })
+    if(length(res)) {
+      posixtime <- strptime(as.character(imgsets[[names(imgsets)[i]]]$DateTimeOriginal), format = "%Y:%m:%d %H:%M:%OS")
+      medtime <- median(posixtime)
+      mintime <- min(posixtime)
+      maxtime <- max(posixtime)
+      
+      # round elapsed time, convert to hours
+      elps <- round(maxtime - mintime,1) 
+      if(attr(elps, "units") == "days") elps <- elps * 24
+      if(attr(elps, "units") == "mins") elps <- elps / 60
+      if(attr(elps, "units") == "secs") elps <- elps / (60^2)
+      
+      # if a pit takes longer than 3 hours based on first and last pic ... worth inspecting -- so print some debug info
+      if(!is.na(elps) & length(elps) & elps > 3)
+        paste(dp_points[i,]$ident, "elapsed:", round(elps,2) , "hours (start:", mintime, "median:", medtime, "stop: ",maxtime,")")
     }
-  })
-  if(length(res)) {
-    posixtime <- strptime(as.character(imgsets[[names(imgsets)[i]]]$DateTimeOriginal), format = "%Y:%m:%d %H:%M:%OS")
-    medtime <- median(posixtime)
-    mintime <- min(posixtime)
-    maxtime <- max(posixtime)
-    
-    # round elapsed time, convert to hours
-    elps <- round(maxtime - mintime,1) 
-    if(attr(elps, "units") == "days") elps <- elps * 24
-    if(attr(elps, "units") == "mins") elps <- elps / 60
-    if(attr(elps, "units") == "secs") elps <- elps / (60^2)
-    
-    # if a pit takes longer than 3 hours based on first and last pic ... worth inspecting -- so print some debug info
-    if(!is.na(elps) & length(elps) & elps > 3)
-      paste(dp_points[i,]$ident, "elapsed:", round(elps,2) , "hours (start:", mintime, "median:", medtime, "stop: ",maxtime,")")
   }
 }
 
 paste0("Moving unmatched images...")
 pat <- paste0(output_path, "~unmatched/")
-if(!dir.exists(pat)) dir.create(pat)
+if(!dir.exists(pat)) 
+  dir.create(pat)
 for(i in 1:length(imgunmatched)) {
   if(length(imgunmatched[[names(imgunmatched)[i]]])) {
     pat <- paste0(output_path, "~unmatched/", i, "/")
@@ -211,7 +216,7 @@ for(i in 1:length(imgunmatched)) {
     filez <- as.character(imgunmatched[[names(imgunmatched)[i]]]$FileName)
     lapply(as.list(1:length(filez)), function(f) {
       fi <- filez[as.numeric(f)]
-      if(!is.na(fi) & length(fi)) {
+      if(length(fi) & !is.na(fi)) {
         img <- image_read(fi)
         img_s <- image_scale(img, scaling_factor)
         image_write(image = img_s, path = paste0(pat, basename(fi)))

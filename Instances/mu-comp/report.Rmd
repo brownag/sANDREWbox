@@ -7,7 +7,7 @@ output:
     smart: no
     keep_md: no
 ---
-<!-- mu-comparison (v3.3.8) -- instance created 2019-10-21 13:17:43-->  
+<!-- mu-comparison (v3.3.8) -- instance created 2020-04-07 13:54:27-->  
 
 ```{r, echo=FALSE, results='hide', warning=FALSE, message=FALSE}
 	.report.name <- 'mu-comparison'
@@ -33,7 +33,7 @@ options(width=100, stringsAsFactors=FALSE)
 ### TODO: verify they are not running an old report version that might rely on outdated packages?
 
 ### check if needed CRAN packages are installed
-packz <- c("MASS","rgdal","rgeos","raster","plyr","latticeExtra","cluster","clhs","randomForest","spdep","reshape2","aqp","sharpshootR")
+packz <- c("MASS","rgdal","rgeos","raster","plyr","latticeExtra","cluster","clhs","randomForest","spdep","reshape2","aqp","sharpshootR","RColorBrewer")
 newpackz <- packz[!(packz %in% installed.packages()[,"Package"])]
 
 # Last two (aqp and sharpshootR) are (in general) installed from GitHub. Maybe in the future (when more stable) we will rely more heavily on CRAN.
@@ -68,12 +68,6 @@ if(class(mu) == 'try-error')
 if(!(mu.col %in% names(mu)))
   stop(paste0('Cannot find map unit column (',mu.col,') in attribute table of: "', mu.dsn, ' / ', mu.layer,'"'), call. = FALSE)
 ### -----
-
-## project
-if(is.na(is.projected(mu)) || !is.projected(mu)) {
-  proj4string(mu) <- "+proj=longlat +datum=WGS84"
-  mu <- spTransform(mu, CRS("+proj=utm +zone=10 +units=m +datum=WGS84"))
-}
 
 ### -----
 ### Sanity check #3 - make sure all raster/input file paths exist and are readable

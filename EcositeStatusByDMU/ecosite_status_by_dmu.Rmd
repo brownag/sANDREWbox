@@ -69,6 +69,30 @@ get_component_esd_data_from_NASIS_db2 <- function() {
   return(d)
 }
 
+get_component_canopycover_data_from_NASIS_db <- function() {
+  # must have RODBC installed
+  if(!requireNamespace('RODBC'))
+    stop('please install the `RODBC` package', call.=FALSE)
+  
+  q <- "SELECT * FROM cocanopycover;"
+  
+  # setup connection local NASIS
+  channel <- RODBC::odbcDriverConnect(connection = getOption("soilDB.NASIS.credentials"))
+  
+  # exec query
+  d <- RODBC::sqlQuery(channel, q, stringsAsFactors=FALSE)
+  
+  # close connection
+  RODBC::odbcClose(channel)
+  
+  # recode metadata domains
+  #this is a soilDB internal function...
+  #d <- .metadata_replace(d)
+  
+  # done
+  return(d)
+}
+
 get_component_eplant_data_from_NASIS_db <- function() {
   # must have RODBC installed
   if(!requireNamespace('RODBC'))
@@ -156,11 +180,13 @@ e <-  as.data.frame(get_component_esd_data_from_NASIS_db2())
 #new soilDB type functions
 ep <- as.data.frame(get_component_eplant_data_from_NASIS_db())
 fp <- as.data.frame(get_component_fprod_data_from_NASIS_db())
+cc <- as.data.frame(get_component_canopycover_data_from_NASIS_db())
 
 users <- as.data.frame(get_NASIS_user_data())
 
 names(ep) <- paste0("ep_",names(ep))
 names(fp) <- paste0("fp_",names(fp))
+names(cc) <- paste0("cc_",names(cc))
 
 c <- c[grepl(c$dmudesc,pattern=dmupattern),] #narrow components based on user supplied pattern
 
@@ -171,6 +197,8 @@ ce$plants <- ce$coiid %in% ep$ep_coiidref
 
 #just checks to see if there is at least one forest prod record correspondign to the component id
 ce$forestp <- ce$coiid %in% fp$fp_coiidref 
+
+ce$canopyc <- ce$coiid %in% cc$cc_coiidref 
 
 #make a more useful name field
 users$recuseriidref <- users$useriid
@@ -188,7 +216,7 @@ ce$drainage <- sub(pattern=" ",replacement="",x=as.character(ce$drainage))
 #ce$drainage <- ce$drainagecl
 
 #choose a few informative attributes to display
-namez <- c("musym","dmudesc","coiid","compname","comppct_r","ecositeid","taxsubgrp","taxpartsize","drainage","plants","forestp","recwlupdated","user_name")
+namez <- c("musym","dmudesc","coiid","compname","comppct_r","ecositeid","taxsubgrp","taxpartsize","drainage","plants","forestp","canopyc","recwlupdated","user_name")
 
 #order by musym (alphabetic/numeric order) and by component percentage (largest first)
 ce <- ce[order(ce$musym, -ce$comppct_r), namez]

@@ -3,7 +3,8 @@ devtools::install_github('atlanhq/rLandsat')
 library(rLandsat)
 
 # get all the product IDs for path and row
-result <- landsat_search(min_date = "2018-01-01", max_date = "2018-12-31", path_master = 42,	row_master=34)
+result <- landsat_search(min_date = "2018-01-01", max_date = "2018-12-31", 
+                         path_master = 42,	row_master=34)
 
 # inputting espa creds
 espa_creds("andrew.g.brown@usda.gov", "th1sisaplaintextpassword")

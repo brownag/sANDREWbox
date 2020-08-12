@@ -110,20 +110,24 @@ get_rf_lut_column <- function(rf_lut, awc_) {
 
 f <- fetchNASIS(from="components")
 
-f.sub <- f %>% filter(compname="Vistarobles")#dmuiid == "859770", compname=="Gardellones")
+f.sub <- f %>% filter(compkind != "miscellaneous area")#compname="Vistarobles")#dmuiid == "859770", compname=="Gardellones")
 
-# this assigns a organic matter range/class limits based on first character in hzdesgn
 om <- rep(NA, nrow(f.sub))
+
+# this assigns a organic matter range/class limits based on first character in hzdesgn (for field pedons)
 # om[grepl(f.sub$hzname, pattern="^O")] <- 1
 # om[grepl(f.sub$hzname, pattern="^A")] <- 2
 # om[grepl(f.sub$hzname, pattern="^B")] <- 2
 # om[grepl(f.sub$hzname, pattern="^[2-9]")] <- 3 # lithologic discontinuities
 # om[grepl(f.sub$hzname, pattern="^C")] <- 3
+
+# this uses om_r to classify (for components, not pedons)
 om[f.sub$om_r >= 3] <- 1
 om[f.sub$om_r >= 1 & f.sub$om_r < 3] <- 2
 om[f.sub$om_r < 1] <- 3
 om
 
+# take modified texture groups and obtain a texture class
 pattern <- "(.*)\\-(.*)"
 as.character(lapply(f.sub$texture, function(s) lapply(regmatches(s, gregexpr(pattern, s)),
        function(e) regmatches(e, regexec(pattern, e)))))
@@ -145,6 +149,21 @@ f.sub$awc_h <- correct_AWC(rf_lut,
                            getAWC(awc_lut, texcl = textures, omcl = om, FUN=max, na.rm=T), # high awc from FEF
                            total_rf_=f.sub$fragvoltot_l) # corrected for low frags
 
-plotSPC(f.sub, max.depth=100, color="awc_r")
+groupedProfilePlot(f.sub, max.depth=100, color="awc_r", groups="compname")
 f.sub$hcompname <- denormalize(f.sub, 'compname')
 horizons(f.sub)[,c('hcompname', hzdesgnname(f.sub), horizonDepths(f.sub), 'awc_l','awc_r','awc_h')]
+
+
+f.sub$prime_farmland_AWC <- profileApply(f.sub, function(p) {
+  mind <- getMineralSoilSurfaceDepth(p)
+  if(!is.null(mind))
+    return(mutate(trunc(p, mind, mind + 100), # note using low not RV
+           pf_awc = sum(awc_r * (hzdepb_r - hzdept_r), na.rm  = TRUE))$pf_awc)
+  return(NA)
+})
+
+plot(filter(f.sub, prime_farmland_AWC > 8.8), label="compname", color="awc_r")
+
+
+
+     
