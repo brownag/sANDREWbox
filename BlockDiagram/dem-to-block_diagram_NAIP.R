@@ -21,10 +21,10 @@ library(rayshader) # Rayshading
 #   - Repeat with identical parameters and extent for NAIP .sid 
 
 # Default assumption is both of these are in same resolution/CRS/extent
-elev_orig <- raster('demo_dem2.tif')
+elev_orig <- raster('E:/CA649/BlockDiagrams/hornitos.tif')
 names(elev_orig) <- "elev"
 
-theme <- stack("naip_overlay.tif")
+theme <- stack("E:/CA649/BlockDiagrams/hornitos_naip.tif")
 names(theme) <- c("r","g","b")
 
 # stack the elevation and theme rasters
@@ -61,20 +61,20 @@ if (!dir.exists("NAIP/animation/static/"))
   dir.create("NAIP/animation/static/", recursive = TRUE)
 
 # animate
-rayshader::plot_3d(rgb_contrast, elmat, zscale = 2, fov = 0, theta = -45,
+rayshader::plot_3d(rgb_contrast, elmat, zscale = 1, fov = 0, theta = -45,
           zoom = 0.7, phi = 25, windowsize = c(1000,800), lineantialias = TRUE)
 rayshader::render_camera(theta = -45, zoom = 0.7, phi = 25)
 angles <- seq(0, 360, length.out = 1441)[-1]
 for (i in 1:length(angles)) {
   rayshader::render_camera(theta = -45 + angles[i], zoom = 0.7, phi = 25)
-  rayshader::render_snapshot(filename = sprintf("NAIP/animation/static/ca649_huntersvalley_%i.png", i), 
-                  title_text = "Mariposa County, CA (Hunters Valley) | NAIP 2018 + NED 10m DEM",
+  rayshader::render_snapshot(filename = sprintf("NAIP/animation/static/ca649_hornitos_%i.png", i), 
+                  title_text = "Mariposa County, CA (Hornitos) | NAIP 2018 + NED 10m DEM",
                   title_bar_color = "#1f5214", title_color = "white", title_bar_alpha = 1)
 }
 rgl::rgl.close()
 
-av::av_encode_video(sprintf("NAIP/animation/static/ca649_huntersvalley_%i.png", 1:length(angles)), 
+av::av_encode_video(sprintf("NAIP/animation/static/ca649_hornitos_%i.png", 1:length(angles)), 
                     framerate = 30,
-                    output = "NAIP/animation/ca649_huntersvalley.mp4")
+                    output = "NAIP/animation/ca649_hornitos.mp4")
 
 
