@@ -1,7 +1,7 @@
 library(aqp)
 library(soilDB)
 
-kssldat <- fetchKSSL(mlra=c("18","22A"))
+kssldat <- fetchKSSL(mlra = c("18","22A"))
 
 # remove invalid profiles 
 kssldat <- filter(kssldat, checkHzDepthLogic(kssldat)$valid)
@@ -12,7 +12,7 @@ kssltrunc <- trunc(kssldat, 0, 30)
 # new way to do it: group_by + summarize
 ksslgroup <- group_by(kssltrunc, "mlra") 
 
-# profile identity split
+# profile identity split to get profile-level averages
 # ksslgroup <- group_by(kssltrunc, idname(kssltrunc)) 
 
 # summarize takes one or more expressions that resolve to 1 value per group
@@ -29,7 +29,9 @@ slabres  <- aqp::slab(ksslgroup, mlra ~ oc + estimated_oc + estimated_om + ph_h2
                                  sd(x, na.rm = TRUE))
                         names(foo) <- c("Mean","SD")
                         return(foo)
-                      })
+                      })#
+                      # alternately, can use 30cm slab structure.
+                      #, slab.structure = 30)
 
 res2 <- do.call('rbind', lapply(split(slabres, f = slabres$mlra), function(mlra) {
   data.frame(mlra = unique(mlra$mlra),
