@@ -43,6 +43,7 @@ cache_file_name <- "ksslbighappyfamily.rda"
 # this is actually a lot of data in terms of how quickly you can acquire it from public APIs
 #  cache data using specified file name
 if (!file.exists(cache_file_name)) {
+  
   # create a single table of sibling and cousin information 
   # see soilDB::siblings() https://ncss-tech.github.io/soilDB/docs/reference/siblings.html
   clan <- lapply(unique(series_list), function(x) siblings(x, cousins = TRUE))
@@ -63,10 +64,12 @@ if (!file.exists(cache_file_name)) {
   #  pulling from the SoilWeb API, which provides access to KSSL data snapshot.
   #  it is way faster to do this from a local copy, but this is a simpler way to aquire
   #  especially given the conveniences of the fetch method getting geochemical, morphologic and colors etc.
-  kssl <- fetchKSSL(profile_id(osds), 
+  chunks2 <- makeChunks(profile_id(osds), size = 50)
+  kssl <- lapply(1:max(chunks2), function(idx) 
+            fetchKSSL(profile_id(osds)[chunks2 == idx], 
                     returnGeochemicalData = TRUE, 
                     returnMorphologicData = TRUE, 
-                    simplifyColors = TRUE)
+                    simplifyColors = TRUE))
 
   # save for later
   save(kssl, osds_ex, osds, ssiblings, file =  cache_file_name)
@@ -77,13 +80,14 @@ if (!file.exists(cache_file_name)) {
 
 # OSD of just the target series
 target <- subset(osds, profile_id(osds) %in% series_list)
+kssl_spc <- aqp::combine(lunique(lapply(kssl, function(x) x$SPC)))
 
 # lab data from siblings with target taxonomic level match
-kssl_tax <- subset(kssl$SPC, toupper(kssl$SPC[[kssl_tax_level]]) %in% 
+kssl_tax <- subset(kssl_spc, toupper(kssl_spc[[kssl_tax_level]]) %in% 
                              unique(toupper(target[[sib_tax_level]])), ignore.case = TRUE)
 
 # join all xrd/thermal data to horizon slot
-horizons(kssl_tax) <- kssl$xrd_thermal
+horizons(kssl_tax) <- do.call('rbind', lapply(kssl, function(x) x$xrd_thermal))
 
 # make a copy of just the valid logic pedons
 valid_profiles <- subset(kssl_tax, checkHzDepthLogic(kssl_tax)$valid)
