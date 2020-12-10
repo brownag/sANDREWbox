@@ -1,0 +1,187 @@
+---
+title: "Soil Mineralogy Meta-analysis / KSSL-SSURGO Hybrid Using Siblings/Cousins and Taxonomy for Data Aggregation"
+author: "Andrew G. Brown"
+date: "12/9/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+```{r, results='asis', fig.width=12}
+library(aqp)
+library(soilDB)
+
+# read in spreadsheet with 1 row per site
+dat <- read.csv("POMLFN_Nmin_test.csv")
+
+# for now remove redundancy in series name since space is not a component of data aggregation
+dat <- unique(dat[,c("Series","Lat_decimal","Long_decimal")])
+
+# the series names to use for scaffolding data
+series_list <- toupper(dat$Series)
+
+# STRATEGY: Based on series name, find the "siblings" and "cousins", get their lab data from SoilWeb snapshot, filter the lab data based on some constraint (such as taxonomy or space), aggregate data of interest (TODO: more) and output graphical and tabular results for inspection of related data for each study site.
+
+# The taxonomic level to use to evaluate sibling "similarity"
+# 
+#  For example: Drummer soils are Fine-silty, mixed, superactive, mesic Typic Endoaquolls
+#  
+#   - if sib_tax_level = "soilorder" and kssl_tax_level = "taxorder" then the selected siblings would be 
+#      major components that co-occur in mapunits with Drummer that have Soil Order "Mollisols"
+#      
+#   - if sib_tax_level = "greatgroup" and kssl_tax_level = "taxgrtgroup" then the selected siblings would be 
+#      major components that co-occur in mapunits with Drummer that have Soil Great Group "Endoaquolls"
+# 
+
+sib_tax_level <- "suborder"
+kssl_tax_level <- "taxsuborder"
+
+cache_file_name <- "ksslbighappyfamily.rda"
+
+# this is actually a lot of data in terms of how quickly you can acquire it from public APIs
+#  cache data using specified file name
+if (!file.exists(cache_file_name)) {
+  # create a single table of sibling and cousin information 
+  # see soilDB::siblings() https://ncss-tech.github.io/soilDB/docs/reference/siblings.html
+  clan <- lapply(unique(series_list), function(x) siblings(x, cousins = TRUE))
+  ssiblings <- do.call('rbind', lapply(clan, function(x) x$sib))
+  ccousins <- do.call('rbind', lapply(clan, function(x) x$cousins))
+  ssiblings <- unique(rbind(ssiblings, ccousins)[,c("series","sibling")])
+  
+  # download OSDs for target series, siblings and cousins
+  all_series <- unique(c(series_list, ssiblings$sibling))
+  chunks <- makeChunks(all_series)
+  osds_ex <- lapply(1:max(chunks), function(idx) fetchOSD(all_series[chunks == idx], extended = TRUE))
+  
+  # when extended=TRUE the result is a list; we want just the SoilProfileCollection for now
+  osds <- aqp::combine(lunique(lapply(osds_ex, function(x) x$SPC)))
+  
+  # get the KSSL data + "extended" geochemical + NASIS morphological data
+  #  for the named series, siblings and cousins; this takes a little bit! 
+  #  pulling from the SoilWeb API, which provides access to KSSL data snapshot.
+  #  it is way faster to do this from a local copy, but this is a simpler way to aquire
+  #  especially given the conveniences of the fetch method getting geochemical, morphologic and colors etc.
+  kssl <- fetchKSSL(profile_id(osds), 
+                    returnGeochemicalData = TRUE, 
+                    returnMorphologicData = TRUE, 
+                    simplifyColors = TRUE)
+
+  # save for later
+  save(kssl, osds_ex, osds, ssiblings, file =  cache_file_name)
+} else {
+  # load from before
+  load(cache_file_name)
+}
+
+# OSD of just the target series
+target <- subset(osds, profile_id(osds) %in% series_list)
+
+# lab data from siblings with target taxonomic level match
+kssl_tax <- subset(kssl$SPC, toupper(kssl$SPC[[kssl_tax_level]]) %in% 
+                             unique(toupper(target[[sib_tax_level]])), ignore.case = TRUE)
+
+# join all xrd/thermal data to horizon slot
+horizons(kssl_tax) <- kssl$xrd_thermal
+
+# make a copy of just the valid logic pedons
+valid_profiles <- subset(kssl_tax, checkHzDepthLogic(kssl_tax)$valid)
+
+# need one or more horizon with x-ray data measured
+
+# truncate to [0,50]
+profiles_50cm <- trunc(valid_profiles, 0, 50)
+
+# then only keep truncated profiles that have one or more values measured for MT
+#  this is just a heuristic to find profiles that have some mineralogy measured in upper 50cm
+profiles_XRD <- subset(profiles_50cm, !is.na(mt_montmorillonite_x_ray))
+
+# filter to remove data without coordinates 
+profiles_XRD_spatial <- subset(profiles_XRD, !is.na(x))
+
+# promote to spatial SoilProfileCollection and set CRS
+coordinates(profiles_XRD_spatial) <- ~ x + y
+proj4string(profiles_XRD_spatial) <- sp::CRS(SRS_string = "EPSG:4326")
+
+# convert taxonname to upper case
+profiles_XRD_spatial$taxonname <- toupper(profiles_XRD_spatial$taxonname)
+
+# iterate over rows in the input site table
+results <- lapply(seq_along(dat$Series), function(i) {
+  
+  # determine series name, latitude and longitude
+  series <- toupper(dat$Series[i])
+  lat <- dat$Lat_decimal[i]
+  lng <- dat$Long_decimal[i]
+  
+  cat(sprintf("### %s - Study Site #%s\n", series, i))
+  
+  # identify target taxon in the SPC containing the series names at the study sites
+  targ <- subset(target, profile_id(target) == series)
+  
+  # if it is a valid series name with data
+  if (length(targ) != 0) {
+    
+    # get all siblings at target taxonomic level for just current study/series name
+    #   note: this is where more complex relationships could be evaluated,
+    #         In this example, we use tabular co-occurence as an index of soil spatial patterns and similarity AKA "siblings"
+    #         
+    #         Siblings and their data could be weighted such that their influence is lower if they are more "distant" from study site
+    #         
+    spc <- subset(profiles_XRD_spatial, 
+                  toupper(profiles_XRD_spatial[[kssl_tax_level]]) %in% toupper(targ[[sib_tax_level]]))
+    
+    # if there is at least one profile
+    if (length(spc) > 0) {
+      # plot a map of the US
+      maps::map('state')
+      
+      # plot the locations of potential source data
+      points(as(spc, 'SpatialPointsDataFrame'), pch = 4)
+      
+      # add a blue marker for the study site
+      points(sp::SpatialPoints(matrix(c(lng,lat), 1, 2)), pch = 19, col = "BLUE", cex = 1)
+      
+      # report series name and row number
+      mtext(sprintf("%s + %s siblings and cousins - Study Site #%s", series, unique(spc[[kssl_tax_level]]), i))
+      
+      # slab into 1 cm increments: this "cuts up" the profile and calculates quantiles across each slice
+      foo_slab <- slab(spc, ~ mt_montmorillonite_x_ray, slab.structure = 1)
+      
+      # using something like clay content or dithionite extactable Fe will have much better data coverage than e.g. XRD
+      #                      [or any continuous variable for that matter]
+      # foo_slab <- slab(spc, ~ clay, slab.structure = 1)
+      # foo_slab <- slab(spc, ~ fe_dith, slab.structure = 1)
+      
+      # make a 1cm slab plot and return the slabbed horizon data (quantiles in 1cm increments for MT measurement)
+      if (!is.null(foo_slab)) {
+        depths(foo_slab) <- variable ~ top + bottom
+        
+        q_harmonize <- harmonize(foo_slab, list(MT_Rating = c(q25 = "p.q25", q50 = "p.q50", q75 = "p.q75")))
+        
+        # not quite sure how to interpret this kind of thing yet, but I thought it would be a good 
+        #  way to visualize how much variation we have in the aggregate XRD / other lab data
+        aqp::plot(q_harmonize, color = "MT_Rating", divide.hz = FALSE)
+        
+        # calculate mass preserving splines with lambda = 1 and plot -- conceptual
+        #  only spline if no gaps in the slab data
+        if (length(subset(q_harmonize, is.na(MT_Rating))) == 0) {
+          hzdesgnname(q_harmonize) <- "hzID"
+          foo_spline <- try(spc2mpspline(q_harmonize, var_name = "MT_Rating", lam = 1))
+          
+          if (!inherits(foo_spline, 'try-error'))
+             plot(foo_spline, color = "MT_Rating_spline", divide.hz = FALSE)
+        }
+        cat("\n\n\n")
+        return(horizons(foo_slab))
+      }    
+    }
+  } else {
+    return(NULL)
+  }    
+})
+
+# make some quick output to show the slab quantiles for each study
+done <- lapply(seq_along(series_list), function(i) write.csv(results[[i]], sprintf("%s_%s.csv", series_list[[i]], i)))
+```

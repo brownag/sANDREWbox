@@ -1,0 +1,13 @@
+Reference,Series,Order,Lat_decimal,Long_decimal,Sand,Silt,Clay,pH,SoilDepth,TN,POMN,MAOMN,Nmin
+Liebig2004,Wilton,Mollisol,46.7667,-100.9525,18,64,18,6.43,7.5,1826.3,235.3,1591.0,0.4
+Liebig2004,Wilton,Mollisol,46.7667,-100.9525,18,64,18,6.16,7.5,1463.1,637.2,826.0,1.0
+Liebig2004,Wilton,Mollisol,46.7667,-100.9525,18,64,18,6.27,7.5,4000.0,1631.4,2368.6,1.9
+Wander2000,Drummer,Mollisol,41.917,-88.75,10,60,30,NA,5,3490.0,860.0,2630.0,3.9
+Wander2000,Muscatine,Mollisol,40.9,-90.63,2,66,30,NA,5,1940.0,500.0,1440.0,4.1
+Wander2000,Herrick,Mollisol,39.77,-90.73,2,73,23,NA,5,1750.0,300.0,1450.0,4.0
+Hook2000,Valent,Entisol,40.82,-104.77,68,14,18,NA,15,902.6,304.1,598.5,0.1
+Hook2001,Valent,Entisol,40.82,-104.77,52,21,27,#NA,15,1421.8,346.8,1075.0,0.2
+Spargo2011,Russett,Ultisol,39.03,-76.9,20,65,15,6.5,20,1400.0,153.0,1247.0,0.4
+Spargo2012,Russett,Ultisol,39.03,-76.9,20,65,15,7,20,1340.0,171.0,1169.0,0.5
+Spargo2013,Russett,Ultisol,39.03,-76.9,20,65,15,6.9,20,1480.0,210.0,1270.0,0.5
+Spargo2014,Russett,Ultisol,39.03,-76.9,20,65,15,7,20,1450.0,222.0,1228.0,0.5
