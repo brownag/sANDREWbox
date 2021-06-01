@@ -1,0 +1,34 @@
+---
+title: "Mollic Epipedon"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Do any soil series use the 18 cm flat minimum thickness (rule 6d, not the sliding scale 18-24))? 
+
+Individual pedons correlated to series do sometimes trigger the "none of the above" 6d rule. There are generally not limitations in the range in characteristics that would say that a soil must meet 6d, however -- it would be implied by the family-level taxonomy and absence of the other properties and characteristics.
+
+In practice I think 6c triggers very often but is truncated to either 18 or 25.
+
+More important for a _series_ is the implied range in thickness for soils correlated to that series, and whether that range would be truncated by the proposed move to a standard minimum thickness of 21.5.
+
+ - 540 series have lower end range for mollic epipedon thickness equal to 18 cm
+ 
+ - 49 series have a lower end range for mollic epipedon thickness less than 18 cm
+
+ - 17 series have _upper_ end range for mollic epipedon thickness less than 25 cm
+
+## OC, pH, matrix color, and Base Sat in soils that were correlated as:
+
+ - Mollisols or 
+ 
+ - Confirmed having a mollic:
+   - Xeric and Ustic Alfisols
+   - Xeric and Ustic Inceptisols
+   - Xeric and Ustic Vertisols 
+
+
+

@@ -1,0 +1,18 @@
+"","order","suborder","greatgroup","series","top","bottom","units","family","subgroup","subgroup_code","class_string","topt","bottomt"
+"1","Mollisols","Ustolls","Calciustolls","ANDYS","7","8","inches","Coarse-loamy, mixed, superactive, frigid Aridic Calciustolls","aridic calciustolls","IGCL","Coarse-loamy, mixed, superactive, frigid",17.78,20.32
+"2","Mollisols","Xerolls","Argixerolls","ARGABAK","5","7","inches","Loamy-skeletal, mixed, superactive, mesic Aridic Lithic Argixerolls","aridic lithic argixerolls","IFEA","Loamy-skeletal, mixed, superactive, mesic",12.7,17.78
+"3","Vertisols","Usterts","Haplusterts","BELMEAR","0","6","inches","Fine, smectitic, frigid Aridic Haplusterts","aridic haplusterts","FEEH","Fine, smectitic, frigid",0,15.24
+"4","Mollisols","Xerolls","Durixerolls","GORST","7","9","inches","Loamy, mixed, superactive, mesic, shallow Haploduridic Durixerolls","haploduridic durixerolls","IFAH","Loamy, mixed, superactive, mesic, shallow",17.78,22.86
+"5","Alfisols","Cryalfs","Glossocryalfs","HUB","4","9","inches","Fine-loamy, mixed, superactive Ustollic Glossocryalfs","ustollic glossocryalfs","JBBJ","Fine-loamy, mixed, superactive",10.16,22.86
+"6","Alfisols","Xeralfs","Haploxeralfs","KONOCTI","3","8","inches","Loamy-skeletal, mixed, semiactive, thermic Ultic Haploxeralfs","ultic haploxeralfs","JDGR","Loamy-skeletal, mixed, semiactive, thermic",7.62,20.32
+"7","Aridisols","Argids","Calciargids","LARIM","2","4","inches","Loamy-skeletal, mixed, superactive, mesic Ustic Calciargids","ustic calciargids","GEEP","Loamy-skeletal, mixed, superactive, mesic",5.08,10.16
+"8","Mollisols","Ustolls","Haplustolls","LEBSACK","0","6","inches","Fine, smectitic, mesic Pachic Haplustolls","pachic haplustolls","IGGU","Fine, smectitic, mesic",0,15.24
+"9","Entisols","Orthents","Ustorthents","LONESOME","3","6","inches","Sandy over loamy, mixed, superactive, calcareous, frigid Aridic Ustorthents","aridic ustorthents","LEEM","Sandy over loamy, mixed, superactive, calcareous, frigid",7.62,15.24
+"10","Mollisols","Xerolls","Natrixerolls","POST","7","9","inches","Very-fine, illitic, frigid Typic Natrixerolls","typic natrixerolls","IFBF","Very-fine, illitic, frigid",17.78,22.86
+"11","Mollisols","Ustolls","Calciustolls","QUEENY","0","23","cm","Loamy, mixed, superactive, thermic, shallow Petrocalcic Calciustolls","petrocalcic calciustolls","IGCG","Loamy, mixed, superactive, thermic, shallow",0,23
+"12","Mollisols","Ustolls","Haplustolls","RENICK","2","4","inches","Clayey, smectitic, thermic Ruptic-Lithic Haplustolls","ruptic-lithic haplustolls","IGGB","Clayey, smectitic, thermic",5.08,10.16
+"13","Mollisols","Ustolls","Haplustolls","SCHALLER","7","9","inches","Sandy, mixed, frigid Entic Haplustolls","entic haplustolls","IGGZd","Sandy, mixed, frigid",17.78,22.86
+"14","Mollisols","Ustolls","Haplustolls","SHRINE","0","7","inches","Fine-loamy, mixed, superactive, frigid Torriorthentic Haplustolls","torriorthentic haplustolls","IGGX","Fine-loamy, mixed, superactive, frigid",0,17.78
+"15","Mollisols","Xerolls","Palexerolls","SNOWVILLE","7","9","inches","Loamy, mixed, superactive, mesic, shallow Petrocalcic Palexerolls","petrocalcic palexerolls","IFCH","Loamy, mixed, superactive, mesic, shallow",17.78,22.86
+"16","Mollisols","Xerolls","Calcixerolls","STREULING","3","5","inches","Loamy-skeletal, carbonatic, frigid Lithic Calcixerolls","lithic calcixerolls","IFDB","Loamy-skeletal, carbonatic, frigid",7.62,12.7
+"17","Mollisols","Aquolls","Endoaquolls","WOODSLAKE","7","9","inches","Very-fine, smectitic, frigid Vertic Endoaquolls","vertic endoaquolls","IBGD","Very-fine, smectitic, frigid",17.78,22.86
