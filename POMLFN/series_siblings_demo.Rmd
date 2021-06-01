@@ -16,7 +16,7 @@ library(soilDB)
 # read in spreadsheet with 1 row per site
 dat <- read.csv("POMLFN_Nmin_test.csv")
 
-# for now remove redundancy in series name since space is not a component of data aggregation
+# remove redundancy in series name * location
 dat <- unique(dat[,c("Series","Lat_decimal","Long_decimal")])
 
 # the series names to use for scaffolding data
@@ -111,6 +111,74 @@ proj4string(profiles_XRD_spatial) <- sp::CRS(SRS_string = "EPSG:4326")
 # convert taxonname to upper case
 profiles_XRD_spatial$taxonname <- toupper(profiles_XRD_spatial$taxonname)
 
+
+  
+cr <- colorRamp(rev(RColorBrewer::brewer.pal(10, 'Spectral')))
+  
+mapColor <- function(x, r, col.ramp) {
+  c.rgb <- cr(scales::rescale(x, from=r))
+  cc <- which(complete.cases(c.rgb))
+  cols <- rep(NA, times=nrow(c.rgb))
+  cols[cc] <- rgb(c.rgb[cc, ], maxColorValue=255)
+  return(cols)
+}
+  
+plot_var_from_slab <- function(a_slab, varname, varlabel) {
+  
+  var_slab <- subset(a_slab, variable == varname)
+  
+  depths(var_slab) <- variable ~ top + bottom
+  
+  inlist <- list(a_var_label = c(q25 = "p.q25", q50 = "p.q50", q75 = "p.q75"))
+  names(inlist) <- varlabel
+  
+  harmon_slab <- harmonize(var_slab, inlist)
+  
+  pretty_var <- pretty(c(1,harmon_slab[[varlabel]],6), 6)
+  legend_var <- list(legend = pretty_var, cols = rgb(cr(scales::rescale(pretty_var)), maxColorValue = 255))
+  
+  harmon_slab$.color <- mapColor(harmon_slab[[varlabel]], range(pretty_var), cr)
+  
+  # not quite sure how to interpret this kind of thing yet, but I thought it would be a good 
+  #  way to visualize how much variation we have in the aggregate XRD / other lab data
+  #  
+  #  slab the data into 1cm pieces, calculate quantiles for each; plot the "IQR" across depth
+  #  then compare that to the mmass-preserving spline result with lambda=1
+  
+  par(mar = c(1,1,3,3))
+  plotMultipleSPC(list(harmon_slab), group.labels = varlabel, 
+                  args = list(list(name = '', color = '.color',
+                                   id.style = 'side', divide.hz = FALSE)))
+  
+  mtext(side = 3, text = varlabel, font = 2, line = 1.6)
+  
+  legend('bottom', 
+         legend = legend_var$legend, 
+         col = legend_var$col, 
+         bty = 'n', pch = 15, 
+         horiz = TRUE, xpd = TRUE, inset = c(0, 0.99))
+  
+  # calculate mass preserving splines with lambda = 1 and plot -- conceptual
+  #  only spline if no gaps in the slab data
+  if (length(subset(harmon_slab, is.na(eval(substitute(varlabel))))) == 0) {
+    hzdesgnname(harmon_slab) <- "hzID"
+    harmon_spline <- try(spc2mpspline(harmon_slab, varlabel, lam = 1))
+    
+    if (!inherits(harmon_spline, 'try-error')) {
+      harmon_spline$.color <- mapColor(harmon_spline[[paste0(varlabel,"_spline")]], range(pretty_var), cr)
+      plotMultipleSPC(list(harmon_spline), group.labels = varlabel, 
+                      args = list(list(name = '', color = '.color', id.style = 'side', divide.hz = FALSE)))
+      mtext(side = 3, text = varlabel, font = 2, line = 1.6)
+      legend('bottom', 
+             legend = legend_var$legend, 
+             col = legend_var$col,
+             bty = 'n', pch = 15, 
+             horiz = TRUE, xpd = TRUE, inset = c(0, 0.99))
+    }
+  }
+  return(NULL)
+}
+
 # iterate over rows in the input site table
 results <- lapply(seq_along(dat$Series), function(i) {
   
@@ -136,6 +204,13 @@ results <- lapply(seq_along(dat$Series), function(i) {
     spc <- subset(profiles_XRD_spatial, 
                   toupper(profiles_XRD_spatial[[kssl_tax_level]]) %in% toupper(targ[[sib_tax_level]]))
     
+    print(knitr::kable(table(spc$clay_mineral_interpretation, useNA = "ifany"), 
+                 col.names = c("Clay Mineral Interpretation", "n Horizons")))
+    
+    
+    print(knitr::kable(table(spc$fine_sand_mineral_interpretation, useNA = "ifany"), 
+                 col.names = c("Fine Sand Mineral Interpretation", "n Horizons")))
+    
     # if there is at least one profile
     if (length(spc) > 0) {
       # plot a map of the US
@@ -151,7 +226,12 @@ results <- lapply(seq_along(dat$Series), function(i) {
       mtext(sprintf("%s + %s siblings and cousins - Study Site #%s", series, unique(spc[[kssl_tax_level]]), i))
       
       # slab into 1 cm increments: this "cuts up" the profile and calculates quantiles across each slice
-      foo_slab <- slab(spc, ~ mt_montmorillonite_x_ray, slab.structure = 1)
+      foo_slab <- slab(spc, ~ mt_montmorillonite_x_ray + 
+                              vr_vermiculite_x_ray +
+                              kk_kaolinite_x_ray  +
+                              dl_dolomite_x_ray + 
+                              ge_geothite_x_ray +
+                              clay, slab.structure = 1)
       
       # using something like clay content or dithionite extactable Fe will have much better data coverage than e.g. XRD
       #                      [or any continuous variable for that matter]
@@ -160,25 +240,21 @@ results <- lapply(seq_along(dat$Series), function(i) {
       
       # make a 1cm slab plot and return the slabbed horizon data (quantiles in 1cm increments for MT measurement)
       if (!is.null(foo_slab)) {
-        depths(foo_slab) <- variable ~ top + bottom
         
-        q_harmonize <- harmonize(foo_slab, list(MT_Rating = c(q25 = "p.q25", q50 = "p.q50", q75 = "p.q75")))
+        # simple examples
+        plot_var_from_slab(foo_slab, "mt_montmorillonite_x_ray", "MT_Rating")
+        plot_var_from_slab(foo_slab, "vr_vermiculite_x_ray", "VM_Rating")
+        plot_var_from_slab(foo_slab, "kk_kaolinite_x_ray", "KK_Rating")
         
-        # not quite sure how to interpret this kind of thing yet, but I thought it would be a good 
-        #  way to visualize how much variation we have in the aggregate XRD / other lab data
-        aqp::plot(q_harmonize, color = "MT_Rating", divide.hz = FALSE)
+        ## lesser measured:
+        # plot_var_from_slab(foo_slab, "dl_dolomite_x_ray", "DL_Rating")
+        # plot_var_from_slab(foo_slab, "ge_geothite_x_ray", "GE_Rating")
         
-        # calculate mass preserving splines with lambda = 1 and plot -- conceptual
-        #  only spline if no gaps in the slab data
-        if (length(subset(q_harmonize, is.na(MT_Rating))) == 0) {
-          hzdesgnname(q_harmonize) <- "hzID"
-          foo_spline <- try(spc2mpspline(q_harmonize, var_name = "MT_Rating", lam = 1))
-          
-          if (!inherits(foo_spline, 'try-error'))
-             plot(foo_spline, color = "MT_Rating_spline", divide.hz = FALSE)
-        }
+        # important context
+        plot_var_from_slab(foo_slab, "clay", "Clay_Percent")
+        
         cat("\n\n\n")
-        return(horizons(foo_slab))
+        return(foo_slab)
       }    
     }
   } else {

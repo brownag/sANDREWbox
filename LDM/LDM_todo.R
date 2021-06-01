@@ -229,3 +229,13 @@ byhzgrp_master <- split(
 
 sapply(byhzgrp_suffix, nrow)
 sapply(byhzgrp_master, nrow)
+
+mollisols_mollic_morph_dark$caco3_lt_2_mm <- mollisols_mollic_morph_dark$caco3_lt_2_mm
+colordata <- horizons(mollisols_mollic_morph_dark)[,
+                                                   c('caco3_lt_2_mm',"isDark")]
+par(mar=c(4,4,1,2), mfrow=c(2,1))
+boxplot(log10(colordata$caco3_lt_2_mm) ~ horizons(mollisols_mollic_morph_dark)$d_value,
+        xlab="Dry Value", ylab="CaCO3 <2mm")
+boxplot(log10(colordata$caco3_lt_2_mm) ~ horizons(mollisols_mollic_morph_dark)$m_value,
+        xlab="Moist Value", ylab="CaCO3 <2mm")
+

@@ -15,27 +15,27 @@
 
 raster.list <- list(
   continuous=list(
-    `Mean Annual Air Temperature (degrees C)`='C:/Geodata/project_data/MUSum_PRISM/final_MAAT_800m.tif',
-    `Mean Annual Precipitation (mm)`='C:/Geodata/project_data/MUSum_PRISM/final_MAP_mm_800m.tif',
-    `Effective Precipitation (mm)`='C:/Geodata/project_data/MUSum_PRISM/effective_precipitation_800m.tif',
-    `Frost-Free Days`='C:/Geodata/project_data/MUSum_PRISM/ffd_50_pct_800m.tif',
-    `Growing Degree Days (degrees C)`='C:/Geodata/project_data/MUSum_PRISM/gdd_mean_800m.tif',
-    `Elevation (m)`='C:/Geodata/project_data/MUSum_30m_SSR2/DEM_30m_SSR2.tif',
-    `Slope Gradient (%)`='C:/Geodata/project_data/MUSum_30m_SSR2/Slope_30m_SSR2.tif',
-    `Annual Beam Radiance (MJ/sq.m)`='C:/Geodata/project_data/ssro2_ann_beam_rad_int.tif',
-    `Compound Topographic Index`='C:/Geodata/project_data/ssro2_tci_int.tif',
-    `SAGA TWI`='C:/Geodata/project_data/ssro2_saga_twi_int.tif',
-    `NLCD Impervious Surface (%))`='C:/Geodata/project_data/nlcd_impervious_2011_cropped.tif'
-  ),
-  categorical=list(
-    `Geomorphon Landforms`='C:/Geodata/project_data/MUSum_Geomorphon/forms30_region2.tif',
-    `Curvature Classes`='C:/Geodata/project_data/MUSum_Curvature/curvature_classes_30_class_region2.tif',
-    `NLCD (2011)`='C:/Geodata/project_data/nlcd_2011_cropped.tif'#,
-    #`NASS Cropland Data Layer (2017)`='C:/Geodata/project_data/NASS/Ver2017_30m_cdls_clip.img'
-  ),
-  circular=list(
-    `Slope Aspect (degrees)`='C:/Geodata/project_data/MUSum_30m_SSR2/Aspect_30m_SSR2.tif'
-  )
+    # `Mean Annual Air Temperature (degrees C)`='C:/Geodata/project_data/MUSum_PRISM/final_MAAT_800m.tif',
+    # `Mean Annual Precipitation (mm)`='C:/Geodata/project_data/MUSum_PRISM/final_MAP_mm_800m.tif',
+    # `Effective Precipitation (mm)`='C:/Geodata/project_data/MUSum_PRISM/effective_precipitation_800m.tif',
+    # `Frost-Free Days`='C:/Geodata/project_data/MUSum_PRISM/ffd_50_pct_800m.tif',
+    # `Growing Degree Days (degrees C)`='C:/Geodata/project_data/MUSum_PRISM/gdd_mean_800m.tif',
+    # `Elevation (m)`='C:/Geodata/project_data/MUSum_30m_SSR2/DEM_30m_SSR2.tif',
+    `Slope Gradient (%)`='C:/Geodata/project_data/MUSum_30m_SSR2/Slope_30m_SSR2.tif') #,
+  #   `Annual Beam Radiance (MJ/sq.m)`='C:/Geodata/project_data/ssro2_ann_beam_rad_int.tif',
+  #   `Compound Topographic Index`='C:/Geodata/project_data/ssro2_tci_int.tif',
+  #   `SAGA TWI`='C:/Geodata/project_data/ssro2_saga_twi_int.tif',
+  #   `NLCD Impervious Surface (%)`='C:/Geodata/project_data/nlcd_impervious_2011_cropped.tif'
+  # ),
+  # categorical=list(
+  #   `Geomorphon Landforms`='C:/Geodata/project_data/MUSum_Geomorphon/forms30_region2.tif',
+  #   `Curvature Classes`='C:/Geodata/project_data/MUSum_Curvature/curvature_classes_30_class_region2.tif',
+  #   `NLCD (2011)`='C:/Geodata/project_data/nlcd_2011_cropped.tif'#,
+  #   #`NASS Cropland Data Layer (2017)`='C:/Geodata/project_data/NASS/Ver2017_30m_cdls_clip.img'
+  # ),
+  # circular=list(
+  #   `Slope Aspect (degrees)`='C:/Geodata/project_data/MUSum_30m_SSR2/Aspect_30m_SSR2.tif'
+  # )
 )
 
 ###################
@@ -65,7 +65,7 @@ raster.list <- list(
 ##
 
 # path to parent folder of SHP, no trailing forward slash (/)
-mu.dsn <- 'E:/CA649'
+mu.dsn <- 'E:/CA649/workflow/output'
 # SHP name, without file extension
 mu.layer <- 'working_progress'
  
@@ -75,10 +75,10 @@ mu.layer <- 'working_progress'
 ### column with map unit ID / key / symbol #
 ############################################
 
-# could be 'MUKEY', 'MUSYM', or any valid column name
-mu.col <- 'musym'
-mu.set <- c('7083','7083b','7085','7085b', 
-            '7076','7076b','7078','7078b')
+# could be 'MUKEY', 'MUSYM', or any valid column name, also 'pID` for individual polygons
+mu.col <- 'pID'
+# mu.set <- c('7083','7083b','7085','7085b', 
+#             '7076','7076b','7078','7078b')
 
 #########################################################
 ### polygon sampling density (samples / acre / polygon) #
@@ -88,7 +88,7 @@ mu.set <- c('7083','7083b','7085','7085b',
 # increase if there are un-sampled polygons
 # delineations smaller than 5 ac. may require up to 5 points / ac.
 # values > 6-7 points / ac. will only slow things down
-pts.per.acre <- 1
+pts.per.acre <- 0.01
 
 ###########################
 ### quantiles of interest #

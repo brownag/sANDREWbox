@@ -18,7 +18,9 @@ library(gstat)
 
 ## 1. read shapefile for overlay (must cover full extent of elevation .TIF)
 #       for example, ssurgo data symbolized on musym
-thematic_shp <- st_read(dsn = '.', layer = 'dredge_ssurgo.shp', stringsAsFactors = FALSE)
+thematic_shp <- try(st_read(dsn = '.', 
+                            layer = '', 
+                            stringsAsFactors = FALSE))
 
 ## 2. thematic attribute - the column name in shapefile attribute table 
 mu.col <- "MUSYM"
@@ -28,7 +30,14 @@ omit.groups <- c("W")
 
 ## 3. digital elevation model (TIFF, or other raster-compatible format) for a chunk of space
 #     e.g. pan to desired area in ArcMap, and Data > Export Data > By Data Frame
-elev_orig <- raster('dredge_tailings.tif')
+elev_orig <- raster('E:/Geodata/block diagrams/607x/607x.tif')
+
+if (inherits(thematic_shp, 'try-error')) {
+  thematic_shp <- st_as_sf(soilDB::SDA_spatialQuery(FedData::polygon_from_extent(extent(elev_orig),
+                                                                                 proj4string = proj4string(elev_orig)), 
+                                           what = "geom"))
+  thematic_shp$MUSYM <- thematic_shp$mukey
+}
 
 # if needed, define additional extent constraints (default uses full extent of DEM)
 
@@ -40,7 +49,7 @@ elev_orig <- raster('dredge_tailings.tif')
 #extent.poly <- st_read("sub_extent.shp", stringsAsFactors = FALSE)
 
 ## 4. OPTIONAL: resample raster input
-target_resolution <- res(elev_orig) #c(5,5) # define a coarser or finer resolution
+target_resolution <- c(5,5) # define a coarser or finer resolution
 
 ## 5. OPTIONAL: Apply inverse-distance weighting interpolation to minimize DEM artifacts?
 idw_smooth <- FALSE
@@ -51,8 +60,9 @@ gstat.nmax <- 5 # number of neighbors to use in making prediction
 #### END SETUP
 
 # if extent polygon not defined, calculate from DEM
-if(!exists("extent.poly"))
-  extent.poly <- st_sf(bound=1, geom=st_as_sfc(st_bbox(elev_orig, crs=crs(elev_orig))))
+if (!exists("extent.poly"))
+  extent.poly <- st_sf(bound = 1, 
+                       geom = st_as_sfc(st_bbox(elev_orig, crs = crs(elev_orig))))
 
 # use extent polygon to crop and mask overlay shapefile and elevation
 thematic_shp <- st_transform(thematic_shp, st_crs(elev_orig))
@@ -70,7 +80,7 @@ elev_template <- elev
 res(elev_template) <- target_resolution
 
 ## resample elevation raster to target resolution
-if(!all(res(elev_template) == res(elev_orig))) {
+if (!all(res(elev_template) == res(elev_orig))) {
   elev <- resample(elev, elev_template)
 } 
 names(elev) <- "elev"
@@ -114,7 +124,7 @@ qual_col_pals <- brewer.pal.info[brewer.pal.info$category == 'qual',]
 col_vector <- unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
 first.colors <- sample(col_vector, n.grp)
 
-if(exists(omit.groups) & length(omit.groups)) {
+if (exists(omit.groups) & length(omit.groups)) {
   first.colors[match(grp[grp %in% omit.groups], grp)] <- NA
   new.colors <- sample(col_vector, n.grp - sum(is.na(first.colors)))
   first.colors[!is.na(first.colors)] <- new.colors
@@ -191,7 +201,7 @@ rgl::rgl.clear()
 # interactive 3D plot via rgl
 elmat %>%
   sphere_shade(texture = "desert") %>%
-  add_overlay(load.array, alphalayer = 0.9) %>%
+  # add_overlay(load.array) %>%
   #add_water(detect_water(elmat, cutoff = 0.99, min_area = 4000), color="desert") %>%
   add_shadow(raymat, max_darken = 0.4) %>%
   add_shadow(ambmat, max_darken = 0.4) %>%

@@ -1,2 +1,5 @@
 library(soilReports)
-soilReports::reportInit('region2/shiny-pedon-summary', 'shiny-pedon')
+# soilReports::reportInit('region2/mu-comparison', 'mu-comp')
+# soilReports::reportInit('region2/shiny-pedon-summary', 'shiny-pedon')
+soilReports::reportUpdate('region2/mu-comparison', 'mu-comp')
+soilReports::reportUpdate('region2/shiny-pedon-summary', 'shiny-pedon')
