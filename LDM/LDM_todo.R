@@ -34,7 +34,7 @@ mollisols_spc <- bigspc
 
 diagtable <- read.csv("E:/Geodata/soils/NASIS_morph_spc_diag.csv")
 
-mollic_epipedons <- subset(diagtable, featkind == "mollic epipedon")
+mollic_epipedons <- subset(diagtable, featkind %in% c("mollic epipedon","umbric epipedon"))
 
 # remove bad logic layers (sort of heavy handed)
 mollisols_clean <- subset(mollisols_spc, checkHzDepthLogic(mollisols_spc)$valid)
@@ -206,7 +206,7 @@ make_plots <- function(object, atitle) {
   
 }
 
-make_plots(mollisols_dark_mollic, atitle = "Mollic Epipedons")
+make_plots(mollisols_dark_mollic, atitle = "Mollic and Umbric Epipedons")
 make_plots(mollisol_above_natric, atitle = "Horizons above Natric")
 
 byhzgrp_suffix <- split(
@@ -231,11 +231,14 @@ sapply(byhzgrp_suffix, nrow)
 sapply(byhzgrp_master, nrow)
 
 mollisols_mollic_morph_dark$caco3_lt_2_mm <- mollisols_mollic_morph_dark$caco3_lt_2_mm
-colordata <- horizons(mollisols_mollic_morph_dark)[,
-                                                   c('caco3_lt_2_mm',"isDark")]
-par(mar=c(4,4,1,2), mfrow=c(2,1))
-boxplot(log10(colordata$caco3_lt_2_mm) ~ horizons(mollisols_mollic_morph_dark)$d_value,
-        xlab="Dry Value", ylab="CaCO3 <2mm")
-boxplot(log10(colordata$caco3_lt_2_mm) ~ horizons(mollisols_mollic_morph_dark)$m_value,
-        xlab="Moist Value", ylab="CaCO3 <2mm")
 
+colorsub <- subsetHz(mollisols_mollic_morph_dark, carbon_combined > 0.6, caco3_lt_2_mm >= 1)
+colordata <- horizons(colorsub)[, c('caco3_lt_2_mm',"isDark")]
+par(mar=c(4,4,1,2), mfrow=c(1,1))
+
+boxplot(log10(colordata$caco3_lt_2_mm) ~ horizons(colorsub)$d_value, xlab="Dry Value", ylab="log10 CaCO3 % <2mm")
+boxplot(log10(colordata$caco3_lt_2_mm) ~ horizons(colorsub)$m_value, xlab="Moist Value", ylab="log10 CaCO3 % <2mm")
+
+highcaco3 <- subset(horizons(mollisols_mollic_morph_dark), caco3_lt_2_mm > 40)
+
+write.csv(file = "mollic_umbric_lab_morph_highCaCO3.csv", highcaco3)
