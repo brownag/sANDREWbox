@@ -1,0 +1,138 @@
+---
+title: "Carbonates in Dark Surface Epipedons"
+author: "Andrew G. Brown"
+output: html_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", echo = FALSE, message = FALSE)
+Sys.setenv(TAR_MAKE_REPORTER = "silent")
+```
+
+```{r}
+library(aqp)
+library(targets)
+
+tar_unscript()
+
+hzkablefun <-
+  function(spc) {
+    knitr::kable(horizons(spc)[, c(
+      "labsampnum",
+      "phiid",
+      "peiid",
+      "hzname",
+      "hzdept",
+      "hzdepb",
+      'caco3_lt_2_mm',
+      'd_value','m_value','m_chroma',
+      'carbon_combined'
+    )])
+  }
+```
+
+```{targets mollic_umbric_lab_morph}
+tar_option_set(packages = c("magrittr","aqp"))
+list(
+  tar_target(name = mollic_umbric_lab_morph,
+             read.csv(file = "mollic_umbric_lab_morph.csv", stringsAsFactors = FALSE)
+  ), 
+  tar_target(name = mollic_umbric_lab_morph_complete,{
+             ldx <- complete.cases(mollic_umbric_lab_morph[,c('hzdept','caco3_lt_2_mm','isDark','carbon_combined')])
+             mollic_umbric_lab_morph_complete <- mollic_umbric_lab_morph[ldx, ]
+             depths(mollic_umbric_lab_morph_complete) <- peiid ~ hzdept + hzdepb
+             mollic_umbric_lab_morph_complete$isDarkMoist <- mollic_umbric_lab_morph_complete %>% 
+               hasDarkColors(d_value = NA)
+             mollic_umbric_lab_morph_complete
+    }),
+  tar_target(name = q1_data, mollic_umbric_lab_morph_complete %>% subsetHz(carbon_combined >= 0.6 &
+                                                                          caco3_lt_2_mm >= 15 & 
+                                                                           !isDark | 
+                                                                            (is.na(isDark) & !isDarkMoist))),
+  tar_target(name = q2_data, mollic_umbric_lab_morph_complete %>% subsetHz(carbon_combined >= 0.6 &
+                                                                          caco3_lt_2_mm >= 40 & 
+                                                                           !isDark | 
+                                                                            (is.na(isDark) & !isDarkMoist))),
+  tar_target(name = q1_data_18, q1_data %>% subsetHz(hzdept <= 18)),
+  tar_target(name = q2_data_18, q2_data %>% subsetHz(hzdept <= 18)),
+  tar_target(name = q1_data_25, q1_data %>% subsetHz(hzdept <= 25)),
+  tar_target(name = q2_data_25, q2_data %>% subsetHz(hzdept <= 25))
+)
+```
+
+```{r}
+tar_make()
+```
+
+```{r}
+tar_load(mollic_umbric_lab_morph_complete)
+
+n_total <- nrow(horizons(mollic_umbric_lab_morph_complete))
+```
+
+Total number of KSSL mollic epipedon subhorizon records: **`r n_total`**
+
+ -  _ASSOCIATED WITH NASIS MORPHOLOGIC RECORDS with "complete" data_ 
+ 
+   - horizon depths
+   - measured carbonate in <2mm fraction
+   - organic carbon >0.6%
+   - dry and moist color
+
+# Questions
+
+
+### 1) Does the data show that there are mollic subhorizons that have >= 15% CaCO3 and fail to meet the <= 5 dry value, 3/3 moist value/chroma rule 3.a. in the original 12th ed. If so, how many that are in the upper 18 cm? upper 25 cm?   
+
+```{r}
+tar_load(q1_data)
+tar_load(q1_data_18)
+tar_load(q1_data_25)
+
+n_q1 <- nrow(q1_data)
+n_q1_lt18 <- nrow(q1_data_18)
+n_q1_lt25 <- nrow(q1_data_25)
+```
+
+There are `r n_q1` mollic subhorizons (out of `r n_total`) that have >= 15% CaCO3, meet the organic carbon requirement, and do not meet "5-3-3" colors. This is `r round(n_q1 / n_total, 2) * 100`% of the data that are complete enough to be verified.
+
+Of those `r n_q1` mollic subhorizons n=`r n_q1_lt18` are within the upper 18cm and n=`r n_q1_lt25` are within the upper 25cm.
+
+#### `labsampnum` (<= 18cm)
+
+`r hzkablefun(q1_data_18)`
+
+#### `labsampnum` (<= 25cm)
+
+`r hzkablefun(q1_data_25)`
+
+### 2) Does the data show that there are mollic subhorizons that have >= 40% CaCO3, and fail to meet the <= 3/3 moist value/chroma rule 3.b. in the original 12th Ed. If so, how many that are in the upper 18 cm? upper 25 cm?
+
+```{r}
+tar_load(q2_data)
+tar_load(q2_data_18)
+tar_load(q2_data_25)
+
+n_q2 <- nrow(q2_data)
+n_q2_lt18 <- nrow(q2_data_18)
+n_q2_lt25 <- nrow(q2_data_25)
+```
+
+There are `r n_q2` mollic subhorizons (out of `r n_total`) that have >= 40% CaCO3, meet the organic carbon requirement, and do not meet "5-3-3" colors. This is `r round(n_q2/n_total, 2) * 100`% of the data that are complete enough to be verified.
+
+Of those `r n_q2` mollic subhorizons n=`r n_q2_lt18` are within the upper 18cm and n=`r n_q2_lt25` are within the upper 25cm.
+
+#### `labsampnum` (<= 18cm)
+
+`r hzkablefun(q2_data_18)`
+
+#### `labsampnum` (<= 25cm)
+
+`r hzkablefun(q2_data_25)`
+
+# Workflow Network Diagram
+
+```{r}
+tar_visnetwork()
+```
+
