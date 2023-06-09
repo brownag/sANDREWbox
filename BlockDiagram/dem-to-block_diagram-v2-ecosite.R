@@ -8,25 +8,33 @@ library(rgl)
 library(rayshader) 
 library(sf)
 library(terra)
+library(soilDB)
 
 #### SETUP
 
-## 3. digital elevation model (TIFF, or other raster-compatible format) for a chunk of space
+## 1. digital elevation model (TIFF, or other raster-compatible format) for a chunk of space
 #     e.g. pan to desired area in ArcMap, and Data > Export Data > By Data Frame
 elev_orig <- rast('demo_dem.tif')
-elev_orig <- crop(elev_orig, ext(elev_orig))
 
-## 1. read shapefile for overlay (must cover full extent of elevation .TIF)
+## 2. OPTIONAL: resample raster input
+target_resolution <- c(5, 5) # define a coarser or finer resolution
+
+## 3. read shapefile for overlay (must cover full extent of elevation .TIF)
 #       for example, ssurgo data symbolized on musym
 # thematic_shp <- try(st_read(dsn = '.', layer = 'demo_ssurgo', stringsAsFactors = FALSE))
 thematic_shp <- st_as_sf(soilDB::SDA_spatialQuery(elev_orig, what = "mupolygon"))
 
-## 2. thematic attribute - the column name in shapefile attribute table 
+#### Optional: load boundary from shapefile
+# extent.poly <- st_read("sub_extent.shp", stringsAsFactors = FALSE)
+
+## 4. thematic attribute - the column name in shapefile attribute table 
 mu.col <- "ecoclassid"
 
 # group levels in mu.col to omit from result
-omit.groups <- c("W")
-
+omit.groups <- c("Not assigned")
+omit.color <- "white"
+  
+# amend thematic layer
 if (inherits(thematic_shp, 'try-error')) {
   thematic_shp <- st_as_sf(soilDB::SDA_spatialQuery(st_as_sfc(st_bbox(thematic_shp)), what = "mupolygon"))
   thematic_shp$MUSYM <- thematic_shp$mukey
@@ -40,25 +48,10 @@ if (mu.col %in% c("ecoclassid", "ecoclassname")) {
   )
 }
 
-
-## if needed, define additional extent constraints (default uses full extent of DEM)
-## 
-#### Example: take a small subset (1/100th) of the DEM
-# extent.poly <- st_as_sf(as.polygons(ext(elev_orig) / 100))
-# extent.poly <- st_set_crs(extent.poly, crs(elev_orig))
-
-extent.poly <- st_as_sf(as.polygons(ext(elev_orig)))
-extent.poly <- st_set_crs(extent.poly, crs(elev_orig))
-
-#### Example: load boundary from shapefile
-# extent.poly <- st_read("sub_extent.shp", stringsAsFactors = FALSE)
-
-## 4. OPTIONAL: resample raster input
-target_resolution <- c(5, 5) # define a coarser or finer resolution
-
 # if extent polygon not defined, calculate from DEM
-if (!exists("extent.poly"))
+if (!exists("extent.poly")) {
   extent.poly <- st_sf(bound = 1, geom = st_as_sfc(st_bbox(elev_orig, crs = crs(elev_orig))))
+}
 
 # use extent polygon to crop and mask overlay shapefile and elevation
 thematic_shp <- st_transform(thematic_shp, st_crs(elev_orig))
@@ -92,7 +85,16 @@ n.grp <- length(grp)
 col_vector <- rev(hcl.colors(ifelse(length(grp) < 3, 3, n.grp), 'cividis')[seq_len(n.grp)])
 names(col_vector) <- unique(thematic_shp[[mu.col]])
 
-col_vector[names(col_vector) == "Not assigned"] <- "white"
+col_vector[names(col_vector) %in% omit.groups] <- omit.color
+
+# replace individual colors (Optional) 
+## RGB Method col_vector[4] <- rgb(0,0,132/255)
+#col_vector[1] <- "#E4A358" 
+#col_vector[2] <- "#A0B7CB" 
+#col_vector[3] <- "#A1CC7D" 
+#col_vector[4] <- "#FFFFB3" 
+#col_vector[5] <- "#FDBF6F" 
+#col_vector[6] <- "#999999" 
 
 ov <- rayshader::generate_polygon_overlay(geometry = thematic_shp, 
                                           extent = raster::extent(raster::raster(elev)), 
@@ -104,7 +106,6 @@ ov <- rayshader::generate_polygon_overlay(geometry = thematic_shp,
 
 raymat <- ray_shade(elmat)
 ambmat <- ambient_shade(elmat)
-
 
 # important to clear the rgl window if any settings are adjusted
 rgl::clear3d()
